@@ -1,0 +1,13 @@
+*.out
+.DS_Store
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.obj
+*.o
+*.so
+*.dll
+*.exe
+*.class
