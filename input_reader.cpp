@@ -9,15 +9,10 @@
 #include <utility>
 #include <vector>
 
+#include "tree_node.h"
+
 struct ParseError : std::runtime_error {
     using std::runtime_error::runtime_error;
-};
-
-struct TreeNode {
-    bool isLeaf = false;
-    int label = 0;
-    std::unique_ptr<TreeNode> left;
-    std::unique_ptr<TreeNode> right;
 };
 
 class NewickParser {
