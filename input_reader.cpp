@@ -93,10 +93,6 @@ struct Instance {
     int treeCount = 0;
     int leafCount = 0;
 
-    bool hasLowerBound = false;
-    double lowerBoundAlpha = 0.0;
-    int lowerBoundBeta = 0;
-
     std::vector<std::string> rawTrees;
     std::vector<std::size_t> treeLineNumbers;
     std::vector<std::unique_ptr<TreeNode>> trees;
@@ -116,23 +112,6 @@ void parseCountsLine(const std::string& line, Instance& instance, std::size_t li
         throw ParseError("Line " + std::to_string(lineNumber) + ": #p values must be positive");
     }
     instance.hasCounts = true;
-}
-
-void parseLowerBoundLine(const std::string& line, Instance& instance, std::size_t lineNumber) {
-    if (instance.hasLowerBound) {
-        throw ParseError("Line " + std::to_string(lineNumber) + ": duplicate #a line");
-    }
-    std::istringstream iss(line.substr(2));
-    if (!(iss >> instance.lowerBoundAlpha >> instance.lowerBoundBeta)) {
-        throw ParseError("Line " + std::to_string(lineNumber) + ": invalid #a line");
-    }
-    if (instance.lowerBoundAlpha < 1.0) {
-        throw ParseError("Line " + std::to_string(lineNumber) + ": alpha must be >= 1.0");
-    }
-    if (instance.lowerBoundBeta < 0) {
-        throw ParseError("Line " + std::to_string(lineNumber) + ": beta must be non-negative");
-    }
-    instance.hasLowerBound = true;
 }
 
 void parseKeyValueLine(const std::string& line, std::unordered_map<std::string, std::string>& target,
@@ -217,9 +196,6 @@ int main() {
                     case 'p':
                         parseCountsLine(line, instance, lineNumber);
                         break;
-                    case 'a':
-                        parseLowerBoundLine(line, instance, lineNumber);
-                        break;
                     case 'x':
                         parseKeyValueLine(line, instance.parameters, lineNumber, directive);
                         break;
@@ -256,10 +232,6 @@ int main() {
 
         std::cout << "Parsed " << instance.trees.size() << " trees with "
                   << instance.leafCount << " leaves each." << '\n';
-        if (instance.hasLowerBound) {
-            std::cout << "Lower bound constraint: alpha=" << instance.lowerBoundAlpha
-                      << " beta=" << instance.lowerBoundBeta << '\n';
-        }
         if (!instance.parameters.empty()) {
             std::cout << "Recorded #x parameters:" << '\n';
             for (const auto& [key, value] : instance.parameters) {
