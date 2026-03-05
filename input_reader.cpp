@@ -9,7 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include "tree_node.h"
+#include <problem_instance.h>
+#include <tree_node.h>
 
 struct ParseError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -83,18 +84,6 @@ private:
     }
 };
 
-struct Instance {
-    bool hasCounts = false;
-    int treeCount = 0;
-    int leafCount = 0;
-
-    std::vector<std::string> rawTrees;
-    std::vector<std::size_t> treeLineNumbers;
-    std::vector<std::unique_ptr<TreeNode>> trees;
-    std::unordered_map<std::string, std::string> parameters;
-    std::unordered_map<std::string, std::string> systemValues;
-};
-
 void parseCountsLine(const std::string& line, Instance& instance, std::size_t lineNumber) {
     if (instance.hasCounts) {
         throw ParseError("Line " + std::to_string(lineNumber) + ": duplicate #p line");
@@ -164,7 +153,7 @@ void validateTree(const TreeNode* root, int expectedLeafCount) {
     }
 }
 
-int main() {
+Instance parseInput() {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
 
@@ -225,24 +214,31 @@ int main() {
             }
         }
 
-        std::cout << "Parsed " << instance.trees.size() << " trees with "
-                  << instance.leafCount << " leaves each." << '\n';
-        if (!instance.parameters.empty()) {
-            std::cout << "Recorded #x parameters:" << '\n';
-            for (const auto& [key, value] : instance.parameters) {
-                std::cout << "  " << key << " = " << value << '\n';
-            }
-        }
-        if (!instance.systemValues.empty()) {
-            std::cout << "Recorded #s fields (ignored by solver):" << '\n';
-            for (const auto& [key, value] : instance.systemValues) {
-                std::cout << "  " << key << " = " << value << '\n';
-            }
-        }
     } catch (const ParseError& err) {
         std::cerr << "Parsing failed: " << err.what() << '\n';
-        return 1;
+        return {};
     }
 
-    return 0;
+    return instance;
+}
+
+int main() {
+    Instance instance = parseInput();
+
+    std::cout << "Parsed " << instance.trees.size() << " trees with "
+                << instance.leafCount << " leaves each." << '\n';
+    if (!instance.parameters.empty()) {
+        std::cout << "Recorded #x parameters:" << '\n';
+        for (const auto& [key, value] : instance.parameters) {
+            std::cout << "  " << key << " = " << value << '\n';
+        }
+    }
+    if (!instance.systemValues.empty()) {
+        std::cout << "Recorded #s fields (ignored by solver):" << '\n';
+        for (const auto& [key, value] : instance.systemValues) {
+            std::cout << "  " << key << " = " << value << '\n';
+        }
+    }
+
+    return 1;
 }

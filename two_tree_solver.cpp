@@ -9,8 +9,10 @@
 #include <utility>
 #include <vector>
 
-#include "tree_node.h"
+#include <problem_instance.h>
+#include <tree_node.h>
 
+#include "input_reader.cpp"
 
 class TwoTreeSolver {
   std::unique_ptr<TreeNode> tree1_;
@@ -22,6 +24,9 @@ public:
 
 
     int solve() {
+        auto instance = parseInput();
+        
+
         // Placeholder for the actual solution logic.
 
         // Merge matching sibling pairs to one leaf
