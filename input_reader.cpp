@@ -47,7 +47,9 @@ private:
             expect(')');
             auto node = std::make_unique<TreeNode>();
             node->left = std::move(left);
+            node->left->parent = node.get();
             node->right = std::move(right);
+            node->right->parent = node.get();
             return node;
         }
 
@@ -222,23 +224,23 @@ Instance parseInput() {
     return instance;
 }
 
-int main() {
-    Instance instance = parseInput();
+// int main() {
+//     auto instance = parseInput();
 
-    std::cout << "Parsed " << instance.trees.size() << " trees with "
-                << instance.leafCount << " leaves each." << '\n';
-    if (!instance.parameters.empty()) {
-        std::cout << "Recorded #x parameters:" << '\n';
-        for (const auto& [key, value] : instance.parameters) {
-            std::cout << "  " << key << " = " << value << '\n';
-        }
-    }
-    if (!instance.systemValues.empty()) {
-        std::cout << "Recorded #s fields (ignored by solver):" << '\n';
-        for (const auto& [key, value] : instance.systemValues) {
-            std::cout << "  " << key << " = " << value << '\n';
-        }
-    }
+//     std::cout << "Parsed " << instance->trees.size() << " trees with "
+//                 << instance->leafCount << " leaves each." << '\n';
+//     if (!instance->parameters.empty()) {
+//         std::cout << "Recorded #x parameters:" << '\n';
+//         for (const auto& [key, value] : instance->parameters) {
+//             std::cout << "  " << key << " = " << value << '\n';
+//         }
+//     }
+//     if (!instance->systemValues.empty()) {
+//         std::cout << "Recorded #s fields (ignored by solver):" << '\n';
+//         for (const auto& [key, value] : instance->systemValues) {
+//             std::cout << "  " << key << " = " << value << '\n';
+//         }
+//     }
 
-    return 1;
-}
+//     return 1;
+// }
