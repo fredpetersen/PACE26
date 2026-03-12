@@ -27,16 +27,19 @@ public:
     TwoTreeSolver(TreeNode* tree1, TreeNode* tree2, int leafCount, bool debug)
         : tree1_(tree1), tree2_(tree2), leafCount_(leafCount), debug_(debug) {}
 
+    /**
+        Finds the lowest shared ancestor between TreeNodes u and v, and writes the pointer to the shared ancestor to the res address,
+        as well as the distance to the dist address.
+
+        This algorithm works by working up from v and u and placing each parent in a set (until the root), once a parent is attempted to
+        be entered into the set, but that parent is already in the set, then you know you have found the lowest common ancestor. If both
+        vertices climb all the way up to root and there is still no intersection, then they are in different components.
+
+        This should run in O(log n) for balanced trees, as worst case both vertices have to climb up to the root of the tree.
+
+        This function returns 0 if it worked as intended.
+    */
     std::pair<TreeNode*, int> lca(TreeNode* u, TreeNode* v) {
-        /*
-            Finds the lowest shared ancestor between TreeNodes u and v, and writes the pointer to the shared ancestor to the res address,
-            as well as the distance to the dist address.
-
-            This algorithm works by working up from v and u and placing each parent in a set (until the root), once a parent is attempted to
-            be entered into the set, but that parent is already in the set, then you know you have found the lowest common ancestor. If both
-            vertices climb all the way up to root and there is still no intersection, then they are in different components.
-        */
-
         if(debug_) {
             std::cout << "Running LCA..." << std::endl;
         }
@@ -52,7 +55,7 @@ public:
         std::unordered_set<TreeNode*> parentSet{u};
 
         auto uTmp = u;
-        auto vTmp = v; 
+        auto vTmp = v;
 
         if(debug_) {
             std::cout << "Tracing ancestory of u..." << std::endl;
@@ -86,7 +89,7 @@ public:
                 if (parentSet.count(vTmp->parent) > 0) {
                     if(debug_) {
                         std::cout << "Common ancestor " << vTmp->parent << " found at distance " << dist << " from v" << std::endl;
-                    } 
+                    }
                     lca = vTmp->parent;
                     break;
                 }
@@ -100,8 +103,6 @@ public:
             }
             return {lca, dist};
         } else if (lca != nullptr) {
-            std::cout << nullptr << std::endl;
-            
             uTmp = u;
             // Calculates the distance from u to the lca to get the final distance (or root)
             while (uTmp->parent != lca) {
@@ -119,7 +120,7 @@ public:
             return {nullptr, -1};
         }
     }
-    
+
     int solve() {
         if(debug_) {
             std::cout << "Debug Mode is activated, more information will be printed" << std::endl;
