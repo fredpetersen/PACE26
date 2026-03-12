@@ -41,10 +41,15 @@ public:
             This function returns 0 if it worked as intended.
         */
 
-        //TODO: Fix bugs seen in tests
-
         if(debug_) {
             std::cout << "Running LCA..." << std::endl;
+        }
+
+        if(u == v) {
+            if(debug_) {
+                std::cout << "u and v are the same vertex!" << std::endl;
+            }
+            return {u, 0};
         }
 
         std::unordered_set<TreeNode*> parentSet{};
