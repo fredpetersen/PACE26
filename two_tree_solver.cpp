@@ -35,10 +35,6 @@ public:
             This algorithm works by working up from v and u and placing each parent in a set (until the root), once a parent is attempted to
             be entered into the set, but that parent is already in the set, then you know you have found the lowest common ancestor. If both
             vertices climb all the way up to root and there is still no intersection, then they are in different components.
-
-            This should run in O(log n), as worst case both vertices have to climb up to the root of the tree.
-
-            This function returns 0 if it worked as intended.
         */
 
         if(debug_) {
@@ -52,7 +48,8 @@ public:
             return {u, 0};
         }
 
-        std::unordered_set<TreeNode*> parentSet{};
+        // Takes into account if u is a parent of v
+        std::unordered_set<TreeNode*> parentSet{u};
 
         auto uTmp = u;
         auto vTmp = v; 
@@ -77,27 +74,36 @@ public:
         int dist = 0;
         TreeNode* lca = nullptr;
 
-
         if(debug_) {
             std::cout << "Tracing ancestory of v..." << std::endl;
         }
-
-        while (vTmp->parent != nullptr) {
-            //calculates the dist from v to the lca (will later take u's distance to the lca into account)
-            dist++;
-            if (parentSet.count(vTmp->parent) > 0) {
-                if(debug_) {
-                    std::cout << "Common ancestor " << vTmp->parent << " found at distance " << dist << " from v" << std::endl;
-                } 
-                lca = vTmp->parent;
-                break;
+        // Takes into account if V is an ancestor of U
+        if (parentSet.count(v) > 0) {
+            lca = v;
+        } else {
+            while (vTmp->parent != nullptr) {
+                dist++;
+                if (parentSet.count(vTmp->parent) > 0) {
+                    if(debug_) {
+                        std::cout << "Common ancestor " << vTmp->parent << " found at distance " << dist << " from v" << std::endl;
+                    } 
+                    lca = vTmp->parent;
+                    break;
+                }
+                vTmp = vTmp->parent;
             }
-            vTmp = vTmp->parent;
         }
 
-        if (lca != nullptr) {
+        if (lca == u) {
+            if(debug_) {
+                std::cout << "v is a descendent of u!" << std::endl;
+            }
+            return {lca, dist};
+        } else if (lca != nullptr) {
+            std::cout << nullptr << std::endl;
+            
             uTmp = u;
-            // Calculates the distance from u to the lca to get the final distance
+            // Calculates the distance from u to the lca to get the final distance (or root)
             while (uTmp->parent != lca) {
                 dist++;
                 uTmp = uTmp->parent;
@@ -123,18 +129,31 @@ public:
 
         std::cout << tree1_->left.get()->left.get()->left.get()->parent->right.get()->label << std::endl;
 
-        auto [ancestor, dist] = lca(tree1_, tree1_);
+        //1
+        auto [ancestor, dist] = lca(tree1_->left.get(), tree2_->right.get());
+        std::cout << "Dist measured = "<< dist << ", expected = -1" << std::endl << std::endl;
+
+        //2
+        dist = lca(tree1_, tree1_).second;
         std::cout << "Dist measured = "<< dist << ", expected = 0" << std::endl << std::endl;
 
+        //3
         dist = lca(tree1_->left.get(), tree1_->left.get()).second;
         std::cout << "Dist measured = "<< dist << ", expected = 0" << std::endl << std::endl;
 
+        //4
+        dist = lca(tree1_->left.get(), tree1_->left->left.get()).second;
+        std::cout << "Dist measured = "<< dist << ", expected = 1" << std::endl << std::endl;
+
+        //5
         dist = lca(tree1_->left.get(), tree1_->right.get()).second;
         std::cout << "Dist measured = "<< dist << ", expected = 1" << std::endl << std::endl;
 
+        //6
         dist = lca(tree1_->left.get(), tree1_->right->right.get()).second;
         std::cout << "Dist measured = "<< dist << ", expected = 2" << std::endl << std::endl;
 
+        //7
         dist = lca(tree1_->left->left.get(), tree1_->right.get()).second;
         std::cout << "Dist measured = "<< dist << ", expected = 2" << std::endl << std::endl;
 
