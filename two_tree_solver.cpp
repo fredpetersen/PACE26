@@ -12,20 +12,21 @@
 
 #include <problem_instance.h>
 #include <tree_node.h>
+#include <forest.h>
 
 #include "input_reader.cpp"
 
 class TwoTreeSolver {
-  TreeNode* tree1_;
-  TreeNode* tree2_;
+  Forest* forest1_;
+  Forest* forest2_;
   int leafCount_;
   bool debug_;
 public:
-    TwoTreeSolver(TreeNode* tree1, TreeNode* tree2, int leafCount)
-        : tree1_(tree1), tree2_(tree2), leafCount_(leafCount), debug_(false) {}
+    TwoTreeSolver(Forest* forest1, Forest* forest2, int leafCount)
+        : forest1_(forest1), forest2_(forest2), leafCount_(leafCount), debug_(false) {}
 
-    TwoTreeSolver(TreeNode* tree1, TreeNode* tree2, int leafCount, bool debug)
-        : tree1_(tree1), tree2_(tree2), leafCount_(leafCount), debug_(debug) {}
+    TwoTreeSolver(Forest* forest1, Forest* forest2, int leafCount, bool debug)
+        : forest1_(forest1), forest2_(forest2), leafCount_(leafCount), debug_(debug) {}
 
     /**
         Finds the lowest shared ancestor between TreeNodes u and v, and writes the pointer to the shared ancestor to the res address,
@@ -128,8 +129,6 @@ public:
             std::cout << "Activate Debug Mode to see more information" << std::endl;
         }
 
-        std::cout << tree1_->left.get()->left.get()->left.get()->parent->right.get()->label << std::endl;
-
         // Placeholder for the actual solution logic.
 
         // Merge matching sibling pairs to one leaf
@@ -149,10 +148,11 @@ public:
     }
 
     int test() {
-        //1
+        //TODO: Refactor code so it works with Forest class instead of TreeNode
         bool curDebug = debug_;
         debug_ = true;
 
+        //1
         auto [ancestor, dist] = lca(tree1_->left.get(), tree2_->right.get());
         std::cout << "Dist measured = "<< dist << ", expected = -1" << std::endl << std::endl;
 
@@ -186,7 +186,7 @@ public:
 
 int main() {
     auto problemInstance = parseInput();
-    TwoTreeSolver solver(problemInstance.trees[0].get(), problemInstance.trees[1].get(), problemInstance.leafCount, true);
+    TwoTreeSolver solver(problemInstance.forests[0].get(), problemInstance.forests[1].get(), problemInstance.leafCount, true);
     int result = solver.solve();
     std::cout << result << std::endl;
     return 0;

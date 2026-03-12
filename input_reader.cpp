@@ -91,10 +91,10 @@ void parseCountsLine(const std::string& line, Instance& instance, std::size_t li
         throw ParseError("Line " + std::to_string(lineNumber) + ": duplicate #p line");
     }
     std::istringstream iss(line.substr(2));
-    if (!(iss >> instance.treeCount >> instance.leafCount)) {
+    if (!(iss >> instance.forestCount >> instance.leafCount)) {
         throw ParseError("Line " + std::to_string(lineNumber) + ": invalid #p line");
     }
-    if (instance.treeCount <= 0 || instance.leafCount <= 0) {
+    if (instance.forestCount <= 0 || instance.leafCount <= 0) {
         throw ParseError("Line " + std::to_string(lineNumber) + ": #p values must be positive");
     }
     instance.hasCounts = true;
@@ -192,27 +192,29 @@ Instance parseInput() {
             }
 
             instance.rawTrees.push_back(line);
-            instance.treeLineNumbers.push_back(lineNumber);
+            instance.forestLineNumbers.push_back(lineNumber);
         }
 
         if (!instance.hasCounts) {
             throw ParseError("Missing #p line with tree and leaf counts");
         }
-        if (static_cast<int>(instance.rawTrees.size()) != instance.treeCount) {
+        if (static_cast<int>(instance.rawTrees.size()) != instance.forestCount) {
             throw ParseError("Tree count does not match #p directive");
         }
 
-        instance.trees.reserve(instance.treeCount);
+        instance.forests.reserve(instance.forestCount);
         for (std::size_t idx = 0; idx < instance.rawTrees.size(); ++idx) {
             const auto& newick = instance.rawTrees[idx];
-            std::size_t treeLineNumber = instance.treeLineNumbers[idx];
+            std::size_t forestLineNumber = instance.forestLineNumbers[idx];
             try {
                 NewickParser parser(newick);
                 auto tree = parser.parseTree();
                 validateTree(tree.get(), instance.leafCount);
-                instance.trees.push_back(std::move(tree));
+                auto forest = std::make_unique<Forest>();
+                forest->roots.insert(std::move(tree));
+                instance.forests.push_back(std::move(forest));
             } catch (const ParseError& err) {
-                throw ParseError("Line " + std::to_string(treeLineNumber) + ": " + err.what());
+                throw ParseError("Line " + std::to_string(forestLineNumber) + ": " + err.what());
             }
         }
 
