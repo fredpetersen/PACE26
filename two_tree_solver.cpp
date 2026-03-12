@@ -100,8 +100,6 @@ public:
             }
             return {lca, dist};
         } else if (lca != nullptr) {
-            std::cout << nullptr << std::endl;
-            
             uTmp = u;
             // Calculates the distance from u to the lca to get the final distance (or root)
             while (uTmp->parent != lca) {
@@ -129,7 +127,29 @@ public:
 
         std::cout << tree1_->left.get()->left.get()->left.get()->parent->right.get()->label << std::endl;
 
+        // Placeholder for the actual solution logic.
+
+        // Merge matching sibling pairs to one leaf
+
+        // Remove vertices that are both root and leaf
+
+        // Contract edges with degree 2 nodes
+
+        // Branch on remaining sibling pairs in tree1
+        // // Case 1: u,v are siblings in tree 1 but in different components in tree2
+        //
+        // // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
+
+        // // Case 3: u,v are siblings in tree 1, but there are 2 or more pendant subtrees in tree2 between u and v
+
+        return 0;
+    }
+
+    int test() {
         //1
+        bool curDebug = debug_;
+        debug_ = true;
+
         auto [ancestor, dist] = lca(tree1_->left.get(), tree2_->right.get());
         std::cout << "Dist measured = "<< dist << ", expected = -1" << std::endl << std::endl;
 
@@ -157,22 +177,7 @@ public:
         dist = lca(tree1_->left->left.get(), tree1_->right.get()).second;
         std::cout << "Dist measured = "<< dist << ", expected = 2" << std::endl << std::endl;
 
-        // Placeholder for the actual solution logic.
-
-        // Merge matching sibling pairs to one leaf
-
-        // Remove vertices that are both root and leaf
-
-        // Contract edges with degree 2 nodes
-
-        // Branch on remaining sibling pairs in tree1
-        // // Case 1: u,v are siblings in tree 1 but in different components in tree2
-        //
-        // // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
-
-        // // Case 3: u,v are siblings in tree 1, but there are 2 or more pendant subtrees in tree2 between u and v
-
-        return 0;
+        debug_ = curDebug;
     }
 };
 
