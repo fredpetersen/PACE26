@@ -21,12 +21,106 @@ class TwoTreeSolver {
   Forest* forest2_;
   int leafCount_;
   bool debug_;
+
+    void printTreeRecursive(const TreeNode* node, const std::string& prefix, bool isLeft) const {
+            if (node == nullptr) {
+                    std::cout << prefix << (isLeft ? "├── " : "└── ") << "(null)" << std::endl;
+                    return;
+            }
+
+            std::cout << prefix << (isLeft ? "├── " : "└── ")
+                                << (node->isLeaf ? "Leaf(" : "Node(") << node->label << ")" << std::endl;
+
+            if (node->isLeaf) {
+                    return;
+            }
+
+            const std::string childPrefix = prefix + (isLeft ? "│   " : "    ");
+            printTreeRecursive(node->left.get(), childPrefix, true);
+            printTreeRecursive(node->right.get(), childPrefix, false);
+    }
+
 public:
     TwoTreeSolver(Forest* forest1, Forest* forest2, int leafCount)
         : forest1_(forest1), forest2_(forest2), leafCount_(leafCount), debug_(false) {}
 
     TwoTreeSolver(Forest* forest1, Forest* forest2, int leafCount, bool debug)
         : forest1_(forest1), forest2_(forest2), leafCount_(leafCount), debug_(debug) {}
+
+    void printTree(const TreeNode* root, const std::string& name) const {
+        std::cout << name << std::endl;
+        if (root == nullptr) {
+            std::cout << "└── (null)" << std::endl;
+            return;
+        }
+
+        std::cout << "└── " << (root->isLeaf ? "Leaf(" : "Node(") << root->label << ")" << std::endl;
+        if (root->isLeaf) {
+            return;
+        }
+
+        printTreeRecursive(root->left.get(), "    ", true);
+        printTreeRecursive(root->right.get(), "    ", false);
+    }
+
+
+
+
+
+    /**
+     * Contracts the edge between v and its only child, if it has one.
+     *
+     * If v is a root node, then the child becomes the new root.
+     * If v is an internal node, then the child takes the place of v in the tree.
+     * This should run in O(1) time, as it only involves a constant number of pointer updates.
+     *
+     * Does nothing if v has 0 or 2 children, as it is not possible to contract in those cases.
+     */
+    void contract(TreeNode* v) {
+        bool hasLeftChild = v->left != nullptr;
+        bool hasRightChild = v->right != nullptr;
+        if(debug_) {
+            std::cout << "Attempting to contract vertex " << v << " with label " << v->label << std::endl;
+            std::cout << "Has left child: " << hasLeftChild << ", has right child: " << hasRightChild << std::endl;
+        }
+        if (hasLeftChild && hasRightChild) return; // Both children are present; can't contract
+        if (v->isLeaf) return; // can't contract leaf nodes
+
+        if (v->parent != nullptr) { // v is not root node
+            if(debug_) {
+                std::cout << "Vertex is not root, updating parent pointers..." << std::endl;
+            }
+            bool isRightChild = v->parent->right.get() == v;
+            if (isRightChild) {
+                if(hasLeftChild) {
+                    v->parent->right = std::move(v->left);
+                } else {
+                    v->parent->right = std::move(v->right);
+                }
+            } else
+            {
+                if(hasLeftChild) {
+                    v->parent->left = std::move(v->left);
+                } else {
+                    v->parent->left = std::move(v->right);
+                }
+            }
+
+        }
+        else { // v is root node
+            if(debug_) {
+                std::cout << "Vertex is root, updating child pointers..." << std::endl;
+            }
+            if (hasLeftChild) {
+                v->left->parent = nullptr;
+            }
+            else if (hasRightChild)
+            {
+                v->right->parent = nullptr;
+            }
+
+        }
+    }
 
     /**
         Finds the lowest shared ancestor between TreeNodes u and v, and writes the pointer to the shared ancestor to the res address,
@@ -125,6 +219,8 @@ public:
     int solve() {
         if(debug_) {
             std::cout << "Debug Mode is activated, more information will be printed" << std::endl;
+            printTree(tree1_, "Tree 1:");
+            printTree(tree2_, "Tree 2:");
         } else {
             std::cout << "Activate Debug Mode to see more information" << std::endl;
         }
@@ -180,7 +276,30 @@ public:
         dist = lca(tree1_->left->left.get(), tree1_->right.get()).second;
         std::cout << "Dist measured = "<< dist << ", expected = 2" << std::endl << std::endl;
 
+        auto v = std::make_unique<TreeNode>();
+        v->isLeaf = false;
+        v->label = 1;
+        TreeNode* vRaw = v.get();
+
+        auto parent = std::make_unique<TreeNode>();
+        parent->isLeaf = false;
+        parent->label = 2;
+        vRaw->parent = parent.get();
+        parent->left = std::move(v);
+
+        auto child = std::make_unique<TreeNode>();
+        child->isLeaf = true;
+        child->label = 3;
+        child->parent = vRaw;
+        vRaw->right = std::move(child);
+
+        printTree(parent.get(), "Before contraction:");
+        contract(vRaw);
+        printTree(parent.get(), "After contraction:");
+
+
         debug_ = curDebug;
+        return 0;
     }
 };
 
@@ -188,6 +307,7 @@ int main() {
     auto problemInstance = parseInput();
     TwoTreeSolver solver(problemInstance.forests[0].get(), problemInstance.forests[1].get(), problemInstance.leafCount, true);
     int result = solver.solve();
+    solver.test();
     std::cout << result << std::endl;
     return 0;
 }
