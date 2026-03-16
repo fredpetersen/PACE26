@@ -63,8 +63,35 @@ public:
         printTreeRecursive(root->right.get(), "    ", false);
     }
 
+    void printForests() const {
+        std::cout << "Forest 1:" << std::endl;
+        for (const auto& root : forest1_->roots) {
+            printTree(root.get(), "Tree:");
+        }
+        std::cout << "Forest 2:" << std::endl;
+        for (const auto& root : forest2_->roots) {
+            printTree(root.get(), "Tree:");
+        }
+    }
+
+    void printForest(const Forest* forest, const std::string& name) const {
+        std::cout << name << std::endl;
+        for (const auto& root : forest->roots) {
+            printTree(root.get(), "Tree:");
+        }
+    }
 
 
+    void cleanSingletonLeaves(std::shared_ptr<Forest> forest) {
+        std::unordered_set<std::shared_ptr<TreeNode>> newRoots;
+        for (const auto& root : forest->roots) {
+            if (root->isLeaf) {
+                continue; // Skip singleton leaf roots
+            }
+            newRoots.insert(root);
+        }
+        forest->roots = std::move(newRoots);
+    }
 
 
     /**
@@ -76,49 +103,41 @@ public:
      *
      * Does nothing if v has 0 or 2 children, as it is not possible to contract in those cases.
      */
-    void contract(TreeNode* v) {
+    void contract(std::shared_ptr<TreeNode> v, std::shared_ptr<Forest> forest) {
         bool hasLeftChild = v->left != nullptr;
-        bool hasRightChild = v->right != nullptr;
+        bool hasRightChild = v->right.get() != nullptr;
         if(debug_) {
-            std::cout << "Attempting to contract vertex " << v << " with label " << v->label << std::endl;
+            std::cout << "Attempting to contract vertex " << v.get() << " with label " << v.get()->label << std::endl;
             std::cout << "Has left child: " << hasLeftChild << ", has right child: " << hasRightChild << std::endl;
         }
         if (hasLeftChild && hasRightChild) return; // Both children are present; can't contract
         if (v->isLeaf) return; // can't contract leaf nodes
 
+        auto child = hasLeftChild ? v->left : v->right; // The only child of v
+
         if (v->parent != nullptr) { // v is not root node
             if(debug_) {
                 std::cout << "Vertex is not root, updating parent pointers..." << std::endl;
             }
-            bool isRightChild = v->parent->right.get() == v;
+            bool isRightChild = v->parent->right.get() == v.get();
             if (isRightChild) {
-                if(hasLeftChild) {
-                    v->parent->right = std::move(v->left);
-                } else {
-                    v->parent->right = std::move(v->right);
-                }
-            } else
-            {
-                if(hasLeftChild) {
-                    v->parent->left = std::move(v->left);
-                } else {
-                    v->parent->left = std::move(v->right);
-                }
+                v->parent->right = std::move(child);
+            } else {
+                v->parent->left = std::move(child);
             }
 
-        }
-        else { // v is root node
+        } else { // v is root node
             if(debug_) {
                 std::cout << "Vertex is root, updating child pointers..." << std::endl;
             }
-            if (hasLeftChild) {
-                v->left->parent = nullptr;
+            child->parent = nullptr;
+            if(forest->roots.erase(v) > 0) {
+                forest->roots.insert(child);
+            } else {
+                if(debug_) {
+                    std::cout << "Error: Vertex to contract not found in forest roots!" << std::endl;
+                }
             }
-            else if (hasRightChild)
-            {
-                v->right->parent = nullptr;
-            }
-
         }
     }
 
@@ -134,7 +153,7 @@ public:
 
         This function returns 0 if it worked as intended.
     */
-    std::pair<TreeNode*, int> lca(TreeNode* u, TreeNode* v) {
+    std::pair<std::shared_ptr<TreeNode>, int> lca(std::shared_ptr<TreeNode> u, std::shared_ptr<TreeNode> v) {
         if(debug_) {
             std::cout << "Running LCA..." << std::endl;
         }
@@ -147,7 +166,7 @@ public:
         }
 
         // Takes into account if u is a parent of v
-        std::unordered_set<TreeNode*> parentSet{u};
+        std::unordered_set<std::shared_ptr<TreeNode>> parentSet{u};
 
         auto uTmp = u;
         auto vTmp = v;
@@ -170,7 +189,7 @@ public:
         }
 
         int dist = 0;
-        TreeNode* lca = nullptr;
+        std::shared_ptr<TreeNode> lca = nullptr;
 
         if(debug_) {
             std::cout << "Tracing ancestory of v..." << std::endl;
@@ -219,8 +238,7 @@ public:
     int solve() {
         if(debug_) {
             std::cout << "Debug Mode is activated, more information will be printed" << std::endl;
-            printTree(tree1_, "Tree 1:");
-            printTree(tree2_, "Tree 2:");
+            printForests();
         } else {
             std::cout << "Activate Debug Mode to see more information" << std::endl;
         }
@@ -248,54 +266,75 @@ public:
         bool curDebug = debug_;
         debug_ = true;
 
+        auto tree1_ = forest1_->roots.cbegin()->get();
+        auto tree2_ = forest2_->roots.cbegin()->get();
+
+        std::cout << "Leaves in forest 1:" << std::endl;
+        for (const auto& leaf : forest1_->leaves) {
+            std::cout << leaf->label << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "Leaves in forest 2:" << std::endl;
+        for (const auto& leaf : forest2_->leaves) {
+            std::cout << leaf->label << " ";
+        }
+        std::cout << std::endl;
+
         //1
-        auto [ancestor, dist] = lca(tree1_->left.get(), tree2_->right.get());
+        auto [ancestor, dist] = lca(tree1_->left, tree2_->right);
         std::cout << "Dist measured = "<< dist << ", expected = -1" << std::endl << std::endl;
 
         //2
-        dist = lca(tree1_, tree1_).second;
+        // TODO: This feels a little hacky,maybe find a less bad solution
+        dist = lca(tree1_->left->parent, tree1_->right->parent).second;
         std::cout << "Dist measured = "<< dist << ", expected = 0" << std::endl << std::endl;
 
         //3
-        dist = lca(tree1_->left.get(), tree1_->left.get()).second;
+        dist = lca(tree1_->left, tree1_->left).second;
         std::cout << "Dist measured = "<< dist << ", expected = 0" << std::endl << std::endl;
 
         //4
-        dist = lca(tree1_->left.get(), tree1_->left->left.get()).second;
+        dist = lca(tree1_->left, tree1_->left->left).second;
         std::cout << "Dist measured = "<< dist << ", expected = 1" << std::endl << std::endl;
 
         //5
-        dist = lca(tree1_->left.get(), tree1_->right.get()).second;
+        dist = lca(tree1_->left, tree1_->right).second;
         std::cout << "Dist measured = "<< dist << ", expected = 1" << std::endl << std::endl;
 
         //6
-        dist = lca(tree1_->left.get(), tree1_->right->right.get()).second;
+        dist = lca(tree1_->left, tree1_->right->right).second;
         std::cout << "Dist measured = "<< dist << ", expected = 2" << std::endl << std::endl;
 
         //7
-        dist = lca(tree1_->left->left.get(), tree1_->right.get()).second;
+        dist = lca(tree1_->left->left, tree1_->right).second;
         std::cout << "Dist measured = "<< dist << ", expected = 2" << std::endl << std::endl;
 
-        auto v = std::make_unique<TreeNode>();
+        auto v = std::make_shared<TreeNode>();
         v->isLeaf = false;
         v->label = 1;
-        TreeNode* vRaw = v.get();
 
-        auto parent = std::make_unique<TreeNode>();
+        auto parent = std::make_shared<TreeNode>();
         parent->isLeaf = false;
         parent->label = 2;
-        vRaw->parent = parent.get();
-        parent->left = std::move(v);
+        v->parent = parent;
+        parent->left = v;
 
-        auto child = std::make_unique<TreeNode>();
+        auto child = std::make_shared<TreeNode>();
         child->isLeaf = true;
         child->label = 3;
-        child->parent = vRaw;
-        vRaw->right = std::move(child);
+        child->parent = v;
+        v->right = child;
+        auto forest = std::make_shared<Forest>();
+        forest->roots.insert(parent);
 
-        printTree(parent.get(), "Before contraction:");
-        contract(vRaw);
-        printTree(parent.get(), "After contraction:");
+        printForest(forest.get(), "Before contraction:");
+        contract(v, forest);
+        printForest(forest.get(), "After contraction step 1:");
+        contract(parent, forest);
+        printForest(forest.get(), "After contraction step 2:");
+        contract(child, forest);
+        printForest(forest.get(), "After contraction step 3:");
 
 
         debug_ = curDebug;

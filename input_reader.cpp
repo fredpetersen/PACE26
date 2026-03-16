@@ -20,20 +20,21 @@ class NewickParser {
 public:
     explicit NewickParser(std::string_view text) : text_(text) {}
 
-    std::unique_ptr<TreeNode> parseTree() {
-        auto root = parseSubtree();
+    std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> parseTree() {
+        std::unordered_set<std::shared_ptr<TreeNode>> leaves;
+        auto root = parseSubtree(leaves);
         expect(';');
         if (position_ != text_.size()) {
             throw ParseError("Unexpected trailing characters after semicolon");
         }
-        return root;
+        return {root, leaves};
     }
 
 private:
     std::string_view text_;
     std::size_t position_ = 0;
 
-    std::unique_ptr<TreeNode> parseSubtree() {
+    std::shared_ptr<TreeNode> parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves) {
         if (position_ >= text_.size()) {
             throw ParseError("Unexpected end of input while parsing subtree");
         }
@@ -41,15 +42,15 @@ private:
         char current = text_[position_];
         if (current == '(') {
             ++position_;
-            auto left = parseSubtree();
+            auto left = parseSubtree(leaves);
             expect(',');
-            auto right = parseSubtree();
+            auto right = parseSubtree(leaves);
             expect(')');
-            auto node = std::make_unique<TreeNode>();
-            node->left = std::move(left);
-            node->left->parent = node.get();
-            node->right = std::move(right);
-            node->right->parent = node.get();
+            auto node = std::make_shared<TreeNode>();
+            node->left = left;
+            node->left->parent = node;
+            node->right = right;
+            node->right->parent = node;
             return node;
         }
 
@@ -58,9 +59,10 @@ private:
         }
 
         int label = parseNumber();
-        auto node = std::make_unique<TreeNode>();
+        auto node = std::make_shared<TreeNode>();
         node->isLeaf = true;
         node->label = label;
+        leaves.insert(node);
         return node;
     }
 
@@ -208,11 +210,14 @@ Instance parseInput() {
             std::size_t forestLineNumber = instance.forestLineNumbers[idx];
             try {
                 NewickParser parser(newick);
-                auto tree = parser.parseTree();
+                auto parsed = parser.parseTree();
+                auto tree = parsed.first;
+                auto leaves = std::move(parsed.second);
                 validateTree(tree.get(), instance.leafCount);
-                auto forest = std::make_unique<Forest>();
-                forest->roots.insert(std::move(tree));
-                instance.forests.push_back(std::move(forest));
+                auto forest = std::make_shared<Forest>();
+                forest->roots.insert(tree);
+                forest->leaves = std::move(leaves);
+                instance.forests.push_back(std::make_unique<Forest>(*forest));
             } catch (const ParseError& err) {
                 throw ParseError("Line " + std::to_string(forestLineNumber) + ": " + err.what());
             }

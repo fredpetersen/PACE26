@@ -5,7 +5,7 @@
 struct TreeNode {
     bool isLeaf = false;
     int label = 0;
-    TreeNode* parent = nullptr;
-    std::unique_ptr<TreeNode> left;
-    std::unique_ptr<TreeNode> right;
+    std::shared_ptr<TreeNode> parent;
+    std::shared_ptr<TreeNode> left;
+    std::shared_ptr<TreeNode> right;
 };
