@@ -82,15 +82,21 @@ public:
     }
 
 
-    void cleanSingletonLeaves(std::shared_ptr<Forest> forest) {
+    void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest) {
         std::unordered_set<std::shared_ptr<TreeNode>> newRoots;
-        for (const auto& root : forest->roots) {
+        for (const auto& root : mainForest->roots) {
+            std::cout << root << std::endl;
             if (root->isLeaf) {
+                // mainForest->leaves.erase(root);
+                // auto child = *otherForest->leaves.find(root);
+                // removeChild(child->parent, child);
+                otherForest->leaves.erase(root);
+                otherForest->roots.erase(root);
                 continue; // Skip singleton leaf roots
             }
             newRoots.insert(root);
         }
-        forest->roots = std::move(newRoots);
+        mainForest->roots = std::move(newRoots);
     }
 
 
@@ -326,27 +332,106 @@ public:
         return 0;
     }
 
+    int test_singelton_leaf() {
+        std::cout << std::endl << "Testing the Clean Singelton Leaf function" << std::endl;
+
+        auto f1 = std::make_shared<Forest>();
+        auto f2 = std::make_shared<Forest>();
+
+        auto t1_l = std::make_shared<TreeNode>();
+        t1_l->isLeaf = true;
+        t1_l->label = 1;
+
+        auto t1_r = std::make_shared<TreeNode>();
+        t1_r->isLeaf = true;
+        t1_r->label = 3;
+
+        auto t1_p = std::make_shared<TreeNode>();
+        t1_p->left = t1_l;
+        t1_l->parent = t1_p; 
+
+        t1_p->right = t1_r;
+        t1_r->parent = t1_p; 
+
+        auto t1_single1 = std::make_shared<TreeNode>();
+        t1_single1->isLeaf = true;
+        t1_single1->label = 2;
+
+        auto t1_single2 = std::make_shared<TreeNode>();
+        t1_single2->isLeaf = true;
+        t1_single2->label = 4;
+
+        f1->roots = {t1_p, t1_single1, t1_single2};
+        f1->leaves = {t1_l, t1_r, t1_single1, t1_single2};
+
+        printForest(f1.get(), "Forest 1");
+
+        auto t2_p = std::make_shared<TreeNode>();
+
+        auto t2_l = std::make_shared<TreeNode>();
+        t2_l->isLeaf = true;
+        t2_l->label = 2;
+
+        auto t2_r1 = std::make_shared<TreeNode>();
+        t2_r1->isLeaf = true;
+        t2_r1->label = 3;
+
+        auto t2_lp = std::make_shared<TreeNode>();
+        t2_lp->left = t2_l;
+        t2_l->parent = t2_lp; 
+
+        t2_lp->right = t2_r1;
+        t2_r1->parent = t2_lp; 
+
+        auto t2_r2 = std::make_shared<TreeNode>();
+        t2_r2->isLeaf = true;
+        t2_r2->label = 1;
+
+        t2_p->left = t2_lp;
+        t2_p->right = t2_r2;
+
+        auto t2_single1 = std::make_shared<TreeNode>();
+        t2_single1->isLeaf = true;
+        t2_single1->label = 4;
+
+        f2->roots = {t2_p, t2_single1};
+        f2->leaves = {t2_l, t2_r1, t2_r2, t2_single1};
+
+        printForest(f2.get(), "Forest 2");
+
+        std::cout << "Cleaning singleton leaves..," << std::endl;
+
+        cleanSingletonLeaves(f1, f2);
+        
+        printForest(f1.get(), "Forest 1");
+        printForest(f2.get(), "Forest 2");
+
+        return 0;
+    }
+
     int test() {
         bool curDebug = debug_;
         debug_ = true;
 
-        auto tree1_ = *forest1_->roots.begin();
-        auto tree2_ = *forest2_->roots.begin();
+        // auto tree1_ = *forest1_->roots.begin();
+        // auto tree2_ = *forest2_->roots.begin();
 
-        std::cout << "Leaves in forest 1:" << std::endl;
-        for (const auto& leaf : forest1_->leaves) {
-            std::cout << leaf->label << " ";
-        }
-        std::cout << std::endl << std::endl;
+        // std::cout << "Leaves in forest 1:" << std::endl;
+        // for (const auto& leaf : forest1_->leaves) {
+        //     std::cout << leaf->label << " ";
+        // }
+        // std::cout << std::endl << std::endl;
 
-        std::cout << "Leaves in forest 2:" << std::endl;
-        for (const auto& leaf : forest2_->leaves) {
-            std::cout << leaf->label << " ";
-        }
-        std::cout << std::endl;
+        // std::cout << "Leaves in forest 2:" << std::endl;
+        // for (const auto& leaf : forest2_->leaves) {
+        //     std::cout << leaf->label << " ";
+        // }
+        // std::cout << std::endl;
 
         // test_lca(tree1_, tree2_);
-        test_contraction();
+        // test_contraction();
+
+        test_singelton_leaf();
 
         debug_ = curDebug;
         return 0;
