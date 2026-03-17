@@ -261,33 +261,14 @@ public:
         return 0;
     }
 
-    int test() {
-        //TODO: Refactor code so it works with Forest class instead of TreeNode
-        bool curDebug = debug_;
-        debug_ = true;
-
-        auto tree1_ = forest1_->roots.cbegin()->get();
-        auto tree2_ = forest2_->roots.cbegin()->get();
-
-        std::cout << "Leaves in forest 1:" << std::endl;
-        for (const auto& leaf : forest1_->leaves) {
-            std::cout << leaf->label << " ";
-        }
-        std::cout << std::endl;
-
-        std::cout << "Leaves in forest 2:" << std::endl;
-        for (const auto& leaf : forest2_->leaves) {
-            std::cout << leaf->label << " ";
-        }
-        std::cout << std::endl;
+    int test_lca(std::shared_ptr<TreeNode> tree1_, std::shared_ptr<TreeNode> tree2_) {
 
         //1
         auto [ancestor, dist] = lca(tree1_->left, tree2_->right);
         std::cout << "Dist measured = "<< dist << ", expected = -1" << std::endl << std::endl;
 
         //2
-        // TODO: This feels a little hacky,maybe find a less bad solution
-        dist = lca(tree1_->left->parent, tree1_->right->parent).second;
+        dist = lca(tree1_, tree1_).second;
         std::cout << "Dist measured = "<< dist << ", expected = 0" << std::endl << std::endl;
 
         //3
@@ -309,6 +290,12 @@ public:
         //7
         dist = lca(tree1_->left->left, tree1_->right).second;
         std::cout << "Dist measured = "<< dist << ", expected = 2" << std::endl << std::endl;
+
+        return 0;
+    }
+
+    int test_contraction() {
+        std::cout << std::endl << "Testing the Contraction function" << std::endl;
 
         auto v = std::make_shared<TreeNode>();
         v->isLeaf = false;
@@ -336,6 +323,30 @@ public:
         contract(child, forest);
         printForest(forest.get(), "After contraction step 3:");
 
+        return 0;
+    }
+
+    int test() {
+        bool curDebug = debug_;
+        debug_ = true;
+
+        auto tree1_ = *forest1_->roots.begin();
+        auto tree2_ = *forest2_->roots.begin();
+
+        std::cout << "Leaves in forest 1:" << std::endl;
+        for (const auto& leaf : forest1_->leaves) {
+            std::cout << leaf->label << " ";
+        }
+        std::cout << std::endl << std::endl;
+
+        std::cout << "Leaves in forest 2:" << std::endl;
+        for (const auto& leaf : forest2_->leaves) {
+            std::cout << leaf->label << " ";
+        }
+        std::cout << std::endl;
+
+        // test_lca(tree1_, tree2_);
+        test_contraction();
 
         debug_ = curDebug;
         return 0;
