@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Forest Builder</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f4f0;
+        --bg-info: #e6f1fb;
+        --text-primary: #1a1a18;
+        --text-secondary: #73726c;
+        --text-info: #185fa5;
+        --border-tertiary: rgba(0, 0, 0, 0.12);
+        --border-secondary: rgba(0, 0, 0, 0.22);
+        --border-info: #85b7eb;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --font-sans: "DM Sans", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", "Fira Mono", monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg-primary: #1e1e1c;
+          --bg-secondary: #252522;
+          --bg-info: #0c2a47;
+          --text-primary: #e8e6df;
+          --text-secondary: #9c9a92;
+          --text-info: #85b7eb;
+          --border-tertiary: rgba(255, 255, 255, 0.1);
+          --border-secondary: rgba(255, 255, 255, 0.2);
+          --border-info: #185fa5;
+        }
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 14px;
+        letter-spacing: -0.01em;
+      }
+
+      #app {
+        display: flex;
+        gap: 16px;
+        max-width: 1100px;
+        margin: 0 auto;
+        min-height: 520px;
+      }
+
+      #left {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      #right {
+        width: 360px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      #canvas-wrap {
+        border: 0.5px solid var(--border-tertiary);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: var(--bg-primary);
+        position: relative;
+        height: 360px;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .toolbar button {
+        font-family: var(--font-sans);
+        font-size: 12px;
+        padding: 5px 11px;
+        border: 0.5px solid var(--border-secondary);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+
+      .toolbar button:hover {
+        background: var(--bg-secondary);
+      }
+
+      .toolbar button.danger {
+        color: #a32d2d;
+        border-color: #f09595;
+      }
+
+      .toolbar button.danger:hover {
+        background: #fcebeb;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .toolbar button.danger {
+          color: #f09595;
+          border-color: #791f1f;
+        }
+        .toolbar button.danger:hover {
+          background: #2a1414;
+        }
+      }
+
+      .legend {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .legend span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .dot.leaf {
+        background: #3b8bd4;
+      }
+      .dot.internal {
+        background: #1d9e75;
+      }
+      .dot.selected {
+        background: #ef9f27;
+        border: 2px solid #ba7517;
+      }
+
+      #info {
+        font-size: 11px;
+        color: var(--text-secondary);
+        min-height: 16px;
+      }
+
+      .panel-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+
+      #code-box {
+        flex: 1;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        line-height: 1.6;
+        border: 0.5px solid var(--border-tertiary);
+        border-radius: var(--radius-md);
+        padding: 12px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        resize: none;
+        white-space: pre;
+        overflow: auto;
+        min-height: 380px;
+      }
+
+      #copy-btn {
+        font-family: var(--font-sans);
+        font-size: 12px;
+        padding: 7px 16px;
+        border: 0.5px solid var(--border-secondary);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        align-self: flex-end;
+        transition: background 0.12s;
+      }
+
+      #copy-btn:hover {
+        background: var(--bg-secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Forest Builder</h1>
+    <div id="app">
+      <div id="left">
+        <div class="toolbar">
+          <button id="btn-add-root">+ Root</button>
+          <button id="btn-add-left">+ Left child</button>
+          <button id="btn-add-right">+ Right child</button>
+          <button id="btn-toggle-leaf">Toggle leaf</button>
+          <button id="btn-del" class="danger">Delete</button>
+          <button id="btn-clear" class="danger">Clear all</button>
+        </div>
+        <div id="canvas-wrap"><canvas id="c"></canvas></div>
+        <div class="legend">
+          <span><span class="dot leaf"></span> Leaf</span>
+          <span><span class="dot internal"></span> Internal</span>
+          <span><span class="dot selected"></span> Selected</span>
+          <span id="info">Click a node to select it.</span>
+        </div>
+      </div>
+      <div id="right">
+        <div class="panel-label">Generated C++</div>
+        <textarea id="code-box" readonly spellcheck="false"></textarea>
+        <button id="copy-btn">Copy code</button>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+      const wrap = document.getElementById("canvas-wrap");
+
+      let nodes = [];
+      let selected = null;
+      let nextLabel = 1;
+      let nextId = 1;
+
+      function resize() {
+        canvas.width = wrap.clientWidth;
+        canvas.height = wrap.clientHeight;
+        layout();
+        render();
+      }
+
+      function makeNode(parentId, side) {
+        const id = nextId++;
+        const label = nextLabel++;
+        const node = {
+          id,
+          label,
+          isLeaf: true,
+          parentId: parentId ?? null,
+          left: null,
+          right: null,
+          x: 0,
+          y: 0,
+        };
+        nodes.push(node);
+        if (parentId !== null) {
+          const par = nodes.find((n) => n.id === parentId);
+          if (par) {
+            if (side === "left") par.left = id;
+            else par.right = id;
+            par.isLeaf = false;
+          }
+        }
+        return node;
+      }
+
+      function getRoots() {
+        return nodes.filter((n) => n.parentId === null);
+      }
+
+      function subtreeWidth(id, hgap) {
+        if (!id) return 0;
+        const n = nodes.find((x) => x.id === id);
+        if (!n) return 0;
+        const lw = n.left ? subtreeWidth(n.left, hgap) : 0;
+        const rw = n.right ? subtreeWidth(n.right, hgap) : 0;
+        if (!n.left && !n.right) return hgap;
+        return lw + rw + (n.left && n.right ? hgap * 0.5 : 0);
+      }
+
+      function layoutTree(id, x, y, hgap, vgap) {
+        const n = nodes.find((n) => n.id === id);
+        if (!n) return x;
+        const lw = n.left ? subtreeWidth(n.left, hgap) : 0;
+        const rw = n.right ? subtreeWidth(n.right, hgap) : 0;
+        let cx = x;
+        if (n.left && n.right) cx = x + lw + hgap * 0.25;
+        else if (n.left) cx = x + lw * 0.5;
+        else if (n.right) cx = x + rw * 0.5;
+        n.x = cx;
+        n.y = y;
+        if (n.left) layoutTree(n.left, x, y + vgap, hgap, vgap);
+        if (n.right)
+          layoutTree(
+            n.right,
+            x + lw + (n.left ? hgap * 0.5 : 0),
+            y + vgap,
+            hgap,
+            vgap,
+          );
+        return cx;
+      }
+
+      function layout() {
+        if (nodes.length === 0) return;
+        const roots = getRoots();
+        const hgap = 52,
+          vgap = 60;
+        let x = 36;
+        for (const r of roots) {
+          const w = subtreeWidth(r.id, hgap);
+          layoutTree(r.id, x, 40, hgap, vgap);
+          x += w + hgap * 1.2;
+        }
+        const allX = nodes.map((n) => n.x),
+          allY = nodes.map((n) => n.y);
+        const maxX = Math.max(...allX) + 36,
+          maxY = Math.max(...allY) + 36;
+        const scaleX = canvas.width / maxX,
+          scaleY = canvas.height / maxY;
+        const scale = Math.min(scaleX, scaleY, 1);
+        for (const n of nodes) {
+          n.x *= scale;
+          n.y *= scale;
+        }
+      }
+
+      const R = 16;
+      const COLORS = {
+        leaf: { fill: "#E6F1FB", stroke: "#185FA5", text: "#0C447C" },
+        internal: { fill: "#E1F5EE", stroke: "#0F6E56", text: "#085041" },
+        selected: { fill: "#FAEEDA", stroke: "#BA7517", text: "#412402" },
+      };
+
+      function isDark() {
+        return matchMedia("(prefers-color-scheme: dark)").matches;
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const dark = isDark();
+        for (const n of nodes) {
+          if (n.left) {
+            const c = nodes.find((x) => x.id === n.left);
+            if (c) drawEdge(n, c, dark);
+          }
+          if (n.right) {
+            const c = nodes.find((x) => x.id === n.right);
+            if (c) drawEdge(n, c, dark);
+          }
+        }
+        for (const n of nodes) drawNode(n, dark);
+      }
+
+      function drawEdge(a, b, dark) {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.18)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      function drawNode(n, dark) {
+        const sel = selected === n.id;
+        let pal = sel
+          ? COLORS.selected
+          : n.isLeaf
+            ? COLORS.leaf
+            : COLORS.internal;
+        if (dark && !sel) {
+          pal = n.isLeaf
+            ? { fill: "#0C447C", stroke: "#85B7EB", text: "#B5D4F4" }
+            : { fill: "#085041", stroke: "#5DCAA5", text: "#9FE1CB" };
+        }
+        if (dark && sel)
+          pal = { fill: "#633806", stroke: "#EF9F27", text: "#FAC775" };
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, R, 0, Math.PI * 2);
+        ctx.fillStyle = pal.fill;
+        ctx.fill();
+        ctx.strokeStyle = pal.stroke;
+        ctx.lineWidth = sel ? 2 : 1;
+        ctx.stroke();
+        ctx.fillStyle = pal.text;
+        ctx.font = `500 11px var(--font-sans, sans-serif)`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(n.label, n.x, n.y);
+        if (n.isLeaf) {
+          ctx.font = `400 8px var(--font-sans, sans-serif)`;
+          ctx.fillStyle = pal.stroke;
+          ctx.fillText("L", n.x, n.y + R + 8);
+        }
+      }
+
+      canvas.addEventListener("click", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left,
+          my = e.clientY - rect.top;
+        let hit = null;
+        for (const n of nodes) {
+          const dx = n.x - mx,
+            dy = n.y - my;
+          if (Math.sqrt(dx * dx + dy * dy) < R + 4) {
+            hit = n.id;
+            break;
+          }
+        }
+        selected = hit;
+        updateInfo();
+        render();
+      });
+
+      function updateInfo() {
+        const el = document.getElementById("info");
+        if (selected) {
+          const n = nodes.find((x) => x.id === selected);
+          if (n)
+            el.textContent = `Selected: node ${n.label} (${n.isLeaf ? "leaf" : "internal"})  |  parent: ${n.parentId ?? "none"}  |  left: ${n.left ?? "–"}  |  right: ${n.right ?? "–"}`;
+        } else {
+          el.textContent = "Click a node to select it.";
+        }
+      }
+
+      document.getElementById("btn-add-root").addEventListener("click", () => {
+        makeNode(null, null);
+        layout();
+        render();
+        generateCode();
+        updateInfo();
+      });
+      document.getElementById("btn-add-left").addEventListener("click", () => {
+        if (!selected) return alert("Select a node first.");
+        const n = nodes.find((x) => x.id === selected);
+        if (!n) return;
+        if (n.left) return alert("Node already has a left child.");
+        makeNode(selected, "left");
+        layout();
+        render();
+        generateCode();
+        updateInfo();
+      });
+      document.getElementById("btn-add-right").addEventListener("click", () => {
+        if (!selected) return alert("Select a node first.");
+        const n = nodes.find((x) => x.id === selected);
+        if (!n) return;
+        if (n.right) return alert("Node already has a right child.");
+        makeNode(selected, "right");
+        layout();
+        render();
+        generateCode();
+        updateInfo();
+      });
+      document
+        .getElementById("btn-toggle-leaf")
+        .addEventListener("click", () => {
+          if (!selected) return alert("Select a node first.");
+          const n = nodes.find((x) => x.id === selected);
+          if (!n) return;
+          if (!n.isLeaf && (n.left || n.right))
+            return alert("Remove children before marking as leaf.");
+          n.isLeaf = !n.isLeaf;
+          render();
+          generateCode();
+          updateInfo();
+        });
+
+      function deleteSubtree(id) {
+        const n = nodes.find((x) => x.id === id);
+        if (!n) return;
+        if (n.left) deleteSubtree(n.left);
+        if (n.right) deleteSubtree(n.right);
+        if (n.parentId !== null) {
+          const par = nodes.find((x) => x.id === n.parentId);
+          if (par) {
+            if (par.left === id) par.left = null;
+            if (par.right === id) par.right = null;
+            if (!par.left && !par.right) par.isLeaf = true;
+          }
+        }
+        nodes = nodes.filter((x) => x.id !== id);
+      }
+
+      document.getElementById("btn-del").addEventListener("click", () => {
+        if (!selected) return alert("Select a node first.");
+        deleteSubtree(selected);
+        selected = null;
+        layout();
+        render();
+        generateCode();
+        updateInfo();
+      });
+      document.getElementById("btn-clear").addEventListener("click", () => {
+        nodes = [];
+        selected = null;
+        nextLabel = 1;
+        nextId = 1;
+        render();
+        generateCode();
+        updateInfo();
+      });
+
+      function varName(n) {
+        return `n${n.label}`;
+      }
+
+      function generateCode() {
+        if (nodes.length === 0) {
+          document.getElementById("code-box").value =
+            '// No nodes yet.\n// Click "+ Root" to start building.';
+          return;
+        }
+        const lines = [];
+        lines.push("auto forest = std::make_shared<Forest>();");
+        lines.push("");
+        const ordered = [];
+        const visited = new Set();
+        function visit(id) {
+          if (!id || visited.has(id)) return;
+          visited.add(id);
+          const n = nodes.find((x) => x.id === id);
+          if (!n) return;
+          ordered.push(n);
+          if (n.left) visit(n.left);
+          if (n.right) visit(n.right);
+        }
+        for (const r of getRoots()) visit(r.id);
+        for (const n of ordered) {
+          const v = varName(n);
+          lines.push(`auto ${v} = std::make_shared<TreeNode>();`);
+          lines.push(`${v}->isLeaf = ${n.isLeaf ? "true" : "false"};`);
+          lines.push(`${v}->label = ${n.label};`);
+          lines.push("");
+        }
+        lines.push("// Wire up parent/child links");
+        for (const n of ordered) {
+          const v = varName(n);
+          if (n.parentId !== null) {
+            const par = nodes.find((x) => x.id === n.parentId);
+            if (par) lines.push(`${v}->parent = ${varName(par)};`);
+          }
+          if (n.left) {
+            const lc = nodes.find((x) => x.id === n.left);
+            if (lc) lines.push(`${v}->left = ${varName(lc)};`);
+          }
+          if (n.right) {
+            const rc = nodes.find((x) => x.id === n.right);
+            if (rc) lines.push(`${v}->right = ${varName(rc)};`);
+          }
+        }
+        lines.push("");
+        lines.push("// Add roots and leaves to forest");
+        for (const r of getRoots())
+          lines.push(`forest->roots.insert(${varName(r)});`);
+        lines.push("");
+        for (const n of nodes.filter((x) => x.isLeaf))
+          lines.push(`forest->leaves.insert(${varName(n)});`);
+        lines.push(`forest->componentCount = ${getRoots().length};`);
+        document.getElementById("code-box").value = lines.join("\n");
+      }
+
+      document.getElementById("copy-btn").addEventListener("click", () => {
+        const txt = document.getElementById("code-box").value;
+        navigator.clipboard.writeText(txt).then(() => {
+          const btn = document.getElementById("copy-btn");
+          btn.textContent = "Copied!";
+          setTimeout(() => (btn.textContent = "Copy code"), 1500);
+        });
+      });
+
+      new ResizeObserver(() => {
+        resize();
+      }).observe(wrap);
+      resize();
+      generateCode();
+    </script>
+  </body>
+</html>
