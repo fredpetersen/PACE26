@@ -348,10 +348,10 @@ public:
 
         auto t1_p = std::make_shared<TreeNode>();
         t1_p->left = t1_l;
-        t1_l->parent = t1_p; 
+        t1_l->parent = t1_p;
 
         t1_p->right = t1_r;
-        t1_r->parent = t1_p; 
+        t1_r->parent = t1_p;
 
         auto t1_single1 = std::make_shared<TreeNode>();
         t1_single1->isLeaf = true;
@@ -363,6 +363,7 @@ public:
 
         f1->roots = {t1_p, t1_single1, t1_single2};
         f1->leaves = {t1_l, t1_r, t1_single1, t1_single2};
+        f1->leafByLabel = {{1, t1_l}, {2, t1_single1}, {3, t1_r}, {4, t1_single2}};
 
         printForest(f1.get(), "Forest 1");
 
@@ -378,10 +379,10 @@ public:
 
         auto t2_lp = std::make_shared<TreeNode>();
         t2_lp->left = t2_l;
-        t2_l->parent = t2_lp; 
+        t2_l->parent = t2_lp;
 
         t2_lp->right = t2_r1;
-        t2_r1->parent = t2_lp; 
+        t2_r1->parent = t2_lp;
 
         auto t2_r2 = std::make_shared<TreeNode>();
         t2_r2->isLeaf = true;
@@ -396,16 +397,64 @@ public:
 
         f2->roots = {t2_p, t2_single1};
         f2->leaves = {t2_l, t2_r1, t2_r2, t2_single1};
+        f2->leafByLabel = {{1, t2_r2}, {2, t2_l}, {3, t2_r1}, {4, t2_single1}};
 
         printForest(f2.get(), "Forest 2");
 
         std::cout << "Cleaning singleton leaves..," << std::endl;
 
         cleanSingletonLeaves(f1, f2);
-        
+
         printForest(f1.get(), "Forest 1");
         printForest(f2.get(), "Forest 2");
 
+        return 0;
+    }
+
+    int testgetLeafByLabel() {
+        auto forest = std::make_shared<Forest>();
+
+        auto n1 = std::make_shared<TreeNode>();
+        n1->isLeaf = false;
+        n1->label = 1;
+
+        auto n3 = std::make_shared<TreeNode>();
+        n3->isLeaf = true;
+        n3->label = 3;
+
+        auto n2 = std::make_shared<TreeNode>();
+        n2->isLeaf = true;
+        n2->label = 2;
+
+        auto n4 = std::make_shared<TreeNode>();
+        n4->isLeaf = true;
+        n4->label = 4;
+
+        // Wire up parent/child links
+        n1->left = n3;
+        n1->right = n2;
+        n3->parent = n1;
+        n2->parent = n1;
+
+        // Add roots and leaves to forest
+        forest->roots.insert(n1);
+        forest->roots.insert(n4);
+
+        forest->leaves.insert(n2);
+        forest->leaves.insert(n3);
+        forest->leaves.insert(n4);
+        forest->componentCount = 2;
+        forest->leafByLabel = {{2, n2}, {3, n3}, {4, n4}};
+
+        std::cout << "Testing getLeafByLabel..." << std::endl;
+        for (int label = 1; label <= 4; label++) {
+            auto it = forest->leafByLabel.find(label);
+            if (it != forest->leafByLabel.end()) {
+                std::cout << "Leaf with label " << label << " found at address " << it->second.get() << std::endl;
+            } else {
+                std::cout << "Leaf with label " << label << " not found in leafByLabel map" << std::endl;
+            }
+        }
         return 0;
     }
 
@@ -431,7 +480,8 @@ public:
         // test_lca(tree1_, tree2_);
         // test_contraction();
 
-        test_singelton_leaf();
+        // test_singelton_leaf();
+        testgetLeafByLabel();
 
         debug_ = curDebug;
         return 0;
