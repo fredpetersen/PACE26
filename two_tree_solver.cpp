@@ -16,6 +16,21 @@
 
 #include "input_reader.cpp"
 
+struct SiblingPairHash {
+    size_t operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept {
+        size_t h1 = std::hash<TreeNode*>{}(p.first.get());
+        size_t h2 = std::hash<TreeNode*>{}(p.second.get());
+        return h1 ^ (h2 << 1);
+    }
+};
+
+struct SiblingPairEq {
+    bool operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
+                    const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept {
+        return a.first == b.first && a.second == b.second;
+    }
+};
+
 class TwoTreeSolver {
   Forest* forest1_;
   Forest* forest2_;
@@ -241,6 +256,39 @@ public:
         }
     }
 
+    /**
+     * Returns a set of all sibling leaf pairs in the forest.
+     *
+     * This currently runs in O(n) time, but could be optimized to O(s)
+     * where s is the number of sibling pairs, by keeping track of
+     * sibling pairs in the forest data structure and updating that set
+     * as merges and contractions happen.
+     */
+    std::unordered_set<
+        std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>,
+        SiblingPairHash,SiblingPairEq
+    > getSiblingLeafPairs(Forest* forest) {
+
+        std::unordered_set<
+            std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>,
+            SiblingPairHash,SiblingPairEq
+        > siblingLeafPairs;
+
+        std::unordered_map<std::shared_ptr<TreeNode>, std::vector<std::shared_ptr<TreeNode>>> parentToLeaves;
+        for (const auto& leaf : forest->leaves) {
+            if (leaf->parent != nullptr) {
+                parentToLeaves[leaf->parent].push_back(leaf);
+            }
+        }
+        for (const auto& [parent, leaves] : parentToLeaves) {
+            if (leaves.size() == 2) {
+                siblingLeafPairs.insert({leaves[0], leaves[1]});
+            }
+        }
+        return siblingLeafPairs;
+    }
+
+
     int solve() {
         if(debug_) {
             std::cout << "Debug Mode is activated, more information will be printed" << std::endl;
@@ -258,11 +306,39 @@ public:
         // Contract edges with degree 2 nodes
 
         // Branch on remaining sibling pairs in tree1
-        // // Case 1: u,v are siblings in tree 1 but in different components in tree2
-        //
-        // // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
+        auto siblingLeafPairsInForest1 = getSiblingLeafPairs(forest1_);
+        /* Maybe it's actually better to just get a random sibling pair and branch on that,
+        as that way you can update the sibling pairs after each merge/contract operation,
+        which will likely reduce the number of sibling pairs faster than just branching on all of them at once.
+        This is something to experiment with later.*/
+        for (const auto& siblingPair : siblingLeafPairsInForest1) {
+            auto u = siblingPair.first;
+            auto v = siblingPair.second;
+            auto uInForest2 = forest2_->leafByLabel[u->label];
+            auto vInForest2 = forest2_->leafByLabel[v->label];
+            // Case 1: u,v are siblings in tree 1 but in different components in tree2
+            if (lca(uInForest2, vInForest2).second == -1) {
+                if(debug_) {
+                    std::cout << "Case 1: (" << u->label << ", " << v->label << ") are siblings in tree 1, but are in different components in tree 2" << std::endl;
+                }
+                // Merge u and v in forest 1, and remove the corresponding leaves in forest 2
+            }
+            // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
+            else if (lca(uInForest2, vInForest2).second == 2) {
+                if(debug_) {
+                    std::cout << "Case 2: (" << u->label << ", " << v->label << ") are siblings in tree 1, but u is sibling with parent of v in tree 2 (or vice versa)" << std::endl;
+                }
+                // Merge u and v in forest 1, and contract the edge between the sibling and its parent in forest 2
+            }
+            // Case 3: u,v are siblings in tree 1, but there are 2 or more pendant subtrees in tree2 between u and v
+            else {
+                if(debug_) {
+                    std::cout << "Case 3: (" << u->label << ", " << v->label << ") are siblings in tree 1, but there are 2 or more pendant subtrees in tree 2 between them" << std::endl;
+                }
+                // Merge u and v in forest 1, and branch on all possible merges of the pendant subtrees in tree 2
+            }
+        }
 
-        // // Case 3: u,v are siblings in tree 1, but there are 2 or more pendant subtrees in tree2 between u and v
 
         return 0;
     }
@@ -458,6 +534,109 @@ public:
         return 0;
     }
 
+    int testGetSiblingsPairs() {
+        auto forest = std::make_shared<Forest>();
+        if(true) { // Wrapped in if statement to allow collapsing in IDE, as forest construction is a bit verbose
+            auto n1 = std::make_shared<TreeNode>();
+            n1->isLeaf = false;
+            n1->label = 1;
+
+            auto n2 = std::make_shared<TreeNode>();
+            n2->isLeaf = false;
+            n2->label = 2;
+
+            auto n4 = std::make_shared<TreeNode>();
+            n4->isLeaf = true;
+            n4->label = 4;
+
+            auto n5 = std::make_shared<TreeNode>();
+            n5->isLeaf = true;
+            n5->label = 5;
+
+            auto n3 = std::make_shared<TreeNode>();
+            n3->isLeaf = false;
+            n3->label = 3;
+
+            auto n7 = std::make_shared<TreeNode>();
+            n7->isLeaf = true;
+            n7->label = 7;
+
+            auto n6 = std::make_shared<TreeNode>();
+            n6->isLeaf = false;
+            n6->label = 6;
+
+            auto n8 = std::make_shared<TreeNode>();
+            n8->isLeaf = true;
+            n8->label = 8;
+
+            auto n9 = std::make_shared<TreeNode>();
+            n9->isLeaf = true;
+            n9->label = 9;
+
+            auto n10 = std::make_shared<TreeNode>();
+            n10->isLeaf = false;
+            n10->label = 10;
+
+            auto n11 = std::make_shared<TreeNode>();
+            n11->isLeaf = true;
+            n11->label = 11;
+
+            auto n12 = std::make_shared<TreeNode>();
+            n12->isLeaf = true;
+            n12->label = 12;
+
+            auto n13 = std::make_shared<TreeNode>();
+            n13->isLeaf = true;
+            n13->label = 13;
+
+            // Wire up parent/child links
+            n1->left = n2;
+            n1->right = n3;
+            n2->parent = n1;
+            n2->left = n4;
+            n2->right = n5;
+            n4->parent = n2;
+            n5->parent = n2;
+            n3->parent = n1;
+            n3->left = n7;
+            n3->right = n6;
+            n7->parent = n3;
+            n6->parent = n3;
+            n6->left = n8;
+            n6->right = n9;
+            n8->parent = n6;
+            n9->parent = n6;
+            n10->left = n11;
+            n10->right = n12;
+            n11->parent = n10;
+            n12->parent = n10;
+
+            // Add roots and leaves to forest
+            forest->roots.insert(n1);
+            forest->roots.insert(n10);
+            forest->roots.insert(n13);
+
+            forest->leaves.insert(n4);
+            forest->leaves.insert(n5);
+            forest->leaves.insert(n7);
+            forest->leaves.insert(n8);
+            forest->leaves.insert(n9);
+            forest->leaves.insert(n11);
+            forest->leaves.insert(n12);
+            forest->leaves.insert(n13);
+            forest->componentCount = 3;
+            forest->leafByLabel = {{4, n4}, {5, n5}, {7, n7}, {8, n8}, {9, n9}, {11, n11}, {12, n12}, {13, n13}};
+        }
+        std::cout << "Testing getSiblingLeafPairs..." << std::endl;
+        auto siblingLeafPairs = getSiblingLeafPairs(forest.get());
+        std::cout << "Sibling leaf pairs found: {";
+        for (const auto& leaf : siblingLeafPairs) {
+            std::cout << "(" << leaf.first->label << ", " << leaf.second->label << ") ";
+        }
+        std::cout << "}" << std::endl;
+        return 0;
+    }
+
     int test() {
         bool curDebug = debug_;
         debug_ = true;
@@ -481,7 +660,8 @@ public:
         // test_contraction();
 
         // test_singelton_leaf();
-        testgetLeafByLabel();
+        // testgetLeafByLabel();
+        // testGetSiblingsPairs();
 
         debug_ = curDebug;
         return 0;
