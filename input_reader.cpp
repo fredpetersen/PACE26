@@ -51,6 +51,10 @@ private:
             node->left->parent = node;
             node->right = right;
             node->right->parent = node;
+
+            if (left->isLeaf && right->isLeaf) {
+                node->label = cantorPair(node);
+            }
             return node;
         }
 

@@ -25,3 +25,20 @@ static int removeChild(std::shared_ptr<TreeNode> parent, std::shared_ptr<TreeNod
     
     return 0;
 }
+
+static int cantorPair(std::shared_ptr<TreeNode> parent) {
+    if (parent->left->isLeaf && parent->right->isLeaf) {
+        auto a = parent->left->label;
+        auto b = parent->right->label;
+        
+        // Sorts the children such that a is always less than b
+        if (a > b) {
+            auto c = a;
+            a = b;
+            b = c;
+        }
+        return ((a + b)*(a + b + 1))/2 + b;
+    }
+    std::cout << "Both children should be leaves, for cantorPair() to be called" << std::endl;
+    return 0;
+}

@@ -18,16 +18,21 @@
 
 struct SiblingPairHash {
     size_t operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept {
-        size_t h1 = std::hash<TreeNode*>{}(p.first.get());
-        size_t h2 = std::hash<TreeNode*>{}(p.second.get());
-        return h1 ^ (h2 << 1);
+        auto a = p.first->label;
+        auto b = p.second->label;
+        if (a > b) {
+            auto c = a;
+            a = b;
+            b = c;
+        }
+        return ((a + b)*(a + b + 1))/2 + b;
     }
 };
 
-struct SiblingPairEq {
+struct SiblingPairEq {  
     bool operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
                     const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept {
-        return a.first == b.first && a.second == b.second;
+        return (a.first == b.first && a.second == b.second) || (a.first == b.second && a.second == b.first);
     }
 };
 
