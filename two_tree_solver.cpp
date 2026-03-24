@@ -16,6 +16,11 @@
 
 #include "input_reader.cpp"
 
+
+/* Hashing and equality functions assume that the TreeNodes will always be given in the same order
+
+Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be considered different pairs
+*/
 struct SiblingPairHash {
     size_t operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept {
         size_t h1 = std::hash<TreeNode*>{}(p.first.get());
@@ -24,6 +29,10 @@ struct SiblingPairHash {
     }
 };
 
+/* Hashing and equality functions assume that the TreeNodes will always be given in the same order
+
+Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be considered different pairs
+*/
 struct SiblingPairEq {
     bool operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
                     const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept {
