@@ -54,7 +54,7 @@ class TwoTreeSolver {
             }
 
             std::cout << prefix << (isLeft ? "├── " : "└── ")
-                                << (node->isLeaf ? "Leaf(" : "Node(") << node->label << ")" << std::endl;
+                                << (node->isLeaf ? "Leaf(" : "Node(") << node->label << "[" << node->hash << "]" << ")" << std::endl;
 
             if (node->isLeaf) {
                     return;
@@ -651,8 +651,12 @@ public:
         bool curDebug = debug_;
         debug_ = true;
 
+        printForests();
+
         // auto tree1_ = *forest1_->roots.begin();
         // auto tree2_ = *forest2_->roots.begin();
+
+        
 
         // std::cout << "Leaves in forest 1:" << std::endl;
         // for (const auto& leaf : forest1_->leaves) {

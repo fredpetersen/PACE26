@@ -53,7 +53,7 @@ private:
             node->right->parent = node;
 
             if (left->isLeaf && right->isLeaf) {
-                node->label = cantorPair(node);
+                node->hash = getCantorHash(node);
             }
             return node;
         }
@@ -66,6 +66,7 @@ private:
         auto node = std::make_shared<TreeNode>();
         node->isLeaf = true;
         node->label = label;
+        node->hash = getCantorHash(node);
         if (leafByLabel.count(label)) {
             throw ParseError("Duplicate leaf label: " + std::to_string(label));
         }
