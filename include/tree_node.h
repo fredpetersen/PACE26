@@ -31,11 +31,17 @@ static int removeChild(std::shared_ptr<TreeNode> parent, std::shared_ptr<TreeNod
 static int getCantorHash(std::shared_ptr<TreeNode> node) {
     if (node->isLeaf) {
         auto l = node->label;
-        // Calculates CantorPair(Label, Label + 1). Can't just use label, since labels and cantor pairs only guarantees uniqueness internally
-        return ((2*l + 1)*(2*l + 2))/2 + (l+1);
+        // Calculates CantorPair(Label, 0). Can't just use label, since labels and cantor pairs only guarantees uniqueness internally
+        return (l^2 + l)/2;
     } else if (node->left->isLeaf && node->right->isLeaf) {
         auto a = node->left->hash;
         auto b = node->right->hash;
+        // since (a, b) == (b, a), we sort so a > b
+        if (b > a) {
+            auto c = a;
+            a = b;
+            b = c;
+        }
         return ((a + b)*(a + b + 1))/2 + b;
     } else {
         std::cout << "Node is neither a leaf, nor the parent of 2 leaves. Please fix arguments." << std::endl;
