@@ -270,9 +270,29 @@ public:
             auto v = siblingPair.second;
             auto uInForest2 = forest2_->leafByLabel[u->label];
             auto vInForest2 = forest2_->leafByLabel[v->label];
+
+            auto forestCopy = *forest1_;
+            auto forest2Copy = *forest2_;
+            auto uCopy = forestCopy.leafByLabel[u->label];
+            auto uCopyInForest2 = forest2Copy.leafByLabel[u->label];
+            auto vCopy = forestCopy.leafByLabel[v->label];
+            auto vCopyInForest2 = forest2Copy.leafByLabel[v->label];
+
             // Case 1: u,v are siblings in tree 1 but in different components in tree2
             if (lca(uInForest2, vInForest2).second == -1) {
-                // Merge u and v in forest 1, and remove the corresponding leaves in forest 2
+
+                // first try detaching u in the copy
+                removeChild(uCopy->parent, uCopy);
+                removeChild(uCopyInForest2->parent, uCopyInForest2);
+
+                solve();
+
+                // if that doesn't work, then try detaching v in original forest
+                removeChild(v->parent, v);
+                removeChild(vInForest2->parent, vInForest2);
+
+                solve();
+
             }
             // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
             else if (lca(uInForest2, vInForest2).second == 2) {

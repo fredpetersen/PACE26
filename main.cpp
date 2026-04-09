@@ -13,9 +13,7 @@ int main() {
 
     // int result = solver.solve();
     int result = solver.test();
-    for(int i = 1; i <= problemInstance.leafCount; i++) {
-    // Do something with each leaf
-        std::cout << i  << ";" << std::endl;
-    }
+    solver.solve();
+    printForestNewick(problemInstance.forests[0].get());
     return 0;
 }
