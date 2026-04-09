@@ -13,6 +13,9 @@ int main() {
 
     // int result = solver.solve();
     int result = solver.test();
-    std::cout << result << std::endl;
+    for(int i = 1; i <= problemInstance.leafCount; i++) {
+    // Do something with each leaf
+        std::cout << i  << ";" << std::endl;
+    }
     return 0;
 }
