@@ -1,7 +1,9 @@
 
 #include <iostream>
 
-#include "two_tree_solver.cpp"
+// #include <forest.h> //Will update everything so its done properly. Then it should be .h files not .cpp
+
+#include "forest.cpp"
 #include "input_reader.cpp"
 #include "two_tree_solver_test.cpp"
 
@@ -14,6 +16,6 @@ int main() {
     // int result = solver.solve();
     int result = solver.test();
     solver.solve();
-    printForestNewick(problemInstance.forests[0].get());
+    problemInstance.forests[0]->printForestNewick();
     return 0;
 }

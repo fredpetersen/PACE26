@@ -1,5 +1,3 @@
-#pragma once
-
 #include <cctype>
 #include <iostream>
 #include <memory>
@@ -85,18 +83,18 @@ public:
 
     void printForests() const {
         std::cout << "Forest 1:" << std::endl;
-        for (const auto& root : forest1_->roots) {
+        for (const auto& root : forest1_->getRoots()) {
             printTree(root.get(), "Tree:");
         }
         std::cout << "Forest 2:" << std::endl;
-        for (const auto& root : forest2_->roots) {
+        for (const auto& root : forest2_->getRoots()) {
             printTree(root.get(), "Tree:");
         }
     }
 
-    void printForest(const Forest* forest, const std::string& name) const {
+    void printForest(Forest* forest, const std::string& name) const {
         std::cout << name << std::endl;
-        for (const auto& root : forest->roots) {
+        for (const auto& root : forest->getRoots()) {
             printTree(root.get(), "Tree:");
         }
     }
@@ -104,19 +102,15 @@ public:
 
     void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest) {
         std::unordered_set<std::shared_ptr<TreeNode>> newRoots;
-        for (const auto& root : mainForest->roots) {
-            std::cout << root << std::endl;
+        for (const auto& root : mainForest->getRoots()) {
             if (root->isLeaf) {
-                // mainForest->leaves.erase(root);
-                // auto child = *otherForest->leaves.find(root);
-                // removeChild(child->parent, child);
-                otherForest->leaves.erase(root);
-                otherForest->roots.erase(root);
+                mainForest->removeRoot(root);
+                mainForest->removeLeaf(root);
+                otherForest->removeRoot(root);
+                otherForest->removeLeaf(root);
                 continue; // Skip singleton leaf roots
             }
-            newRoots.insert(root);
         }
-        mainForest->roots = std::move(newRoots);
     }
 
 
@@ -147,11 +141,8 @@ public:
 
         } else { // v is root node
             child->parent = nullptr;
-            if(forest->roots.erase(v) > 0) {
-                forest->roots.insert(child);
-            } else {
-                std::cout << "Error: Vertex to contract not found in forest roots!" << std::endl;
-            }
+            forest->removeRoot(v);
+            forest->addRoot(child);
         }
     }
 
@@ -235,7 +226,7 @@ public:
         > siblingLeafPairs;
 
         std::unordered_map<std::shared_ptr<TreeNode>, std::vector<std::shared_ptr<TreeNode>>> parentToLeaves;
-        for (const auto& leaf : forest->leaves) {
+        for (const auto& leaf : forest->getLeaves()) {
             if (leaf->parent != nullptr) {
                 parentToLeaves[leaf->parent].push_back(leaf);
             }
@@ -268,29 +259,28 @@ public:
         for (const auto& siblingPair : siblingLeafPairsInForest1) {
             auto u = siblingPair.first;
             auto v = siblingPair.second;
-            auto uInForest2 = forest2_->leafByLabel[u->label];
-            auto vInForest2 = forest2_->leafByLabel[v->label];
+            auto uInForest2 = forest2_->getLeafByLabel(u->label);
+            auto vInForest2 = forest2_->getLeafByLabel(v->label);
 
             auto forestCopy = *forest1_;
             auto forest2Copy = *forest2_;
-            auto uCopy = forestCopy.leafByLabel[u->label];
-            auto uCopyInForest2 = forest2Copy.leafByLabel[u->label];
-            auto vCopy = forestCopy.leafByLabel[v->label];
-            auto vCopyInForest2 = forest2Copy.leafByLabel[v->label];
+            auto uCopy = forestCopy.getLeafByLabel(u->label);
+            auto uCopyInForest2 = forest2Copy.getLeafByLabel(u->label);
+            auto vCopy = forestCopy.getLeafByLabel(v->label);
+            auto vCopyInForest2 = forest2Copy.getLeafByLabel(v->label);
 
             // Case 1: u,v are siblings in tree 1 but in different components in tree2
             if (lca(uInForest2, vInForest2).second == -1) {
 
                 // first try detaching u in the copy
-                removeChild(uCopy->parent, uCopy);
-                removeChild(uCopyInForest2->parent, uCopyInForest2);
+                forestCopy.detachChild(uCopy);
+                forest2Copy.detachChild(uCopyInForest2);
 
                 solve();
 
                 // if that doesn't work, then try detaching v in original forest
-                removeChild(v->parent, v);
-                removeChild(vInForest2->parent, vInForest2);
-
+                forest1_->detachChild(v);
+                forest2_->detachChild(vInForest2);
                 solve();
 
             }

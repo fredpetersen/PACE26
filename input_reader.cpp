@@ -6,11 +6,13 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include <problem_instance.h>
 #include <tree_node.h>
+#include <forest.h>
 
 struct ParseError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -224,10 +226,7 @@ Instance parseInput() {
                 auto tree = parsed.first;
                 auto leaves = std::move(parsed.second);
                 validateTree(tree.get(), instance.leafCount);
-                auto forest = std::make_shared<Forest>();
-                forest->roots.insert(tree);
-                forest->leaves = std::move(leaves);
-                forest->leafByLabel = std::move(leafByLabel);
+                auto forest = std::make_shared<Forest>(std::unordered_set<std::shared_ptr<TreeNode>>{tree}, leaves, leafByLabel);
                 instance.forests.push_back(std::make_unique<Forest>(*forest));
             } catch (const ParseError& err) {
                 throw ParseError("Line " + std::to_string(forestLineNumber) + ": " + err.what());
