@@ -11,3 +11,6 @@
 *.dll
 *.exe
 *.class
+
+stride-logs/
+stride-downloads/
