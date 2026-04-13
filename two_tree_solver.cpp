@@ -145,7 +145,7 @@ void TwoTreeSolver::contract(std::shared_ptr<TreeNode> v, std::shared_ptr<Forest
 
     This should run in O(log n) for balanced trees, as worst case both vertices have to climb up to the root of the tree.
 
-    This function returns 0 if it worked as intended.
+    This function returns {ancestor, distance}, where distance == -1 if u and v are in different trees.
 */
 std::pair<std::shared_ptr<TreeNode>, int> TwoTreeSolver::lca(std::shared_ptr<TreeNode> u, std::shared_ptr<TreeNode> v) {
     if(u == v) {
