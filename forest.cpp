@@ -34,29 +34,22 @@ std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
 }
 
 std::shared_ptr<TreeNode> Forest::cloneTree(
-        const std::shared_ptr<TreeNode>& node,
-        std::unordered_map<const TreeNode*, std::shared_ptr<TreeNode>>& memo) {
+        const std::shared_ptr<TreeNode>& node) {
         if (node == nullptr) {
             return nullptr;
-        }
-
-        auto memoIt = memo.find(node.get());
-        if (memoIt != memo.end()) {
-            return memoIt->second;
         }
 
         auto clone = std::make_shared<TreeNode>();
         clone->isLeaf = node->isLeaf;
         clone->label = node->label;
         clone->hash = node->hash;
-        memo.emplace(node.get(), clone);
 
         if (node->left != nullptr) {
-            clone->left = cloneTree(node->left, memo);
+            clone->left = cloneTree(node->left);
             clone->left->parent = clone;
         }
         if (node->right != nullptr) {
-            clone->right = cloneTree(node->right, memo);
+            clone->right = cloneTree(node->right);
             clone->right->parent = clone;
         }
 
@@ -71,9 +64,8 @@ std::shared_ptr<Forest> Forest::cloneForest() const {
 	auto clone = std::make_shared<Forest>();
 	clone->setComponentCount(componentCount_);
 
-	std::unordered_map<const TreeNode*, std::shared_ptr<TreeNode>> memo;
 	for (const auto& root : roots_) {
-		auto clonedRoot = clone->cloneTree(root, memo);
+		auto clonedRoot = clone->cloneTree(root);
 		clone->addRoot(clonedRoot);
 	}
 

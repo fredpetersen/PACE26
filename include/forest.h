@@ -27,8 +27,7 @@ class Forest {
 
 		std::shared_ptr<Forest> cloneForest() const;
 		std::shared_ptr<TreeNode> cloneTree(
-        const std::shared_ptr<TreeNode>& node,
-        std::unordered_map<const TreeNode*, std::shared_ptr<TreeNode>>& memo);
+        const std::shared_ptr<TreeNode>& node);
 
 		void setComponentCount(int newCount);
 		int getComponentCount();
