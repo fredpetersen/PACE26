@@ -5,10 +5,6 @@ std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
 int componentCount_;
 std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel_;
 
-Forest::Forest(std::unordered_set<std::shared_ptr<TreeNode>> roots, std::unordered_set<std::shared_ptr<TreeNode>> leaves,
-	std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel)
-	: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel) {}
-
 void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	//TODO: Is this really how you assign shared pointers?
 	auto parent = child->parent;
@@ -42,10 +38,17 @@ void Forest::printForestNewick() {
 	}
 }
 
+void Forest::setComponentCount(int newCount) {
+	componentCount_ = newCount;
+}
+
 void Forest::addRoot(std::shared_ptr<TreeNode> node) {
 	roots_.insert(node);
 }
 
+void Forest::addLeaf(std::shared_ptr<TreeNode> node) {
+	leaves_.insert(node);
+}
 
 void Forest::removeRoot(std::shared_ptr<TreeNode> node) {
 	roots_.erase(node);
@@ -63,4 +66,14 @@ std::unordered_set<std::shared_ptr<TreeNode>> Forest::getLeaves() {
 }
 std::shared_ptr<TreeNode> Forest::getLeafByLabel(int label) {
 	return leafByLabel_[label];
+}
+
+void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
+	roots_ = newRoots;
+}
+void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) {
+	leaves_ = newLeaves;
+}
+void Forest::setLeavesByLabel(std::unordered_map<int, std::shared_ptr<TreeNode>> newLeavesByLabel) {
+	leafByLabel_ = newLeavesByLabel;
 }
