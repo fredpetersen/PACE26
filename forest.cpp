@@ -72,6 +72,46 @@ std::shared_ptr<Forest> Forest::cloneForest() const {
 	return clone;
 }
 
+void Forest::print(const std::string& name) const {
+	for (const auto& root : roots_) {
+		this->printTree(root.get(), name);
+	}
+}
+
+void Forest::printTree(const TreeNode* node, const std::string& name) const {
+	std::cout << name << std::endl;
+	if (node == nullptr) {
+		std::cout << "└── (null)" << std::endl;
+		return;
+	}
+
+	std::cout << "└── " << (node->isLeaf ? "Leaf(" : "Node(") << node->label << ")" << std::endl;
+	if (node->isLeaf) {
+		return;
+	}
+
+	this->printTreeRecursive(node->left.get(), "    ", true);
+	this->printTreeRecursive(node->right.get(), "    ", false);
+}
+
+void Forest::printTreeRecursive(const TreeNode* node, const std::string& prefix, bool isLeft) const {
+	if (node == nullptr) {
+		std::cout << prefix << (isLeft ? "├── " : "└── ") << "(null)" << std::endl;
+		return;
+	}
+
+	std::cout << prefix << (isLeft ? "├── " : "└── ")
+						<< (node->isLeaf ? "Leaf(" : "Node(") << node->label << ")" << std::endl;
+
+	if (node->isLeaf) {
+		return;
+	}
+
+	const std::string childPrefix = prefix + (isLeft ? "│   " : "    ");
+	this->printTreeRecursive(node->left.get(), childPrefix, true);
+	this->printTreeRecursive(node->right.get(), childPrefix, false);
+}
+
 void Forest::printForestNewick() {
 	for (const auto& root : roots_) {
 			std::cout << treeToNewick(root) << ";\n";

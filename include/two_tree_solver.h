@@ -34,17 +34,12 @@ class TwoTreeSolver {
   Forest* forest2_;
   int leafCount_;
 
-    void printTreeRecursive(const TreeNode* node, const std::string& prefix, bool isLeft) const;
-
 public:
     inline TwoTreeSolver(Forest* forest1, Forest* forest2, int leafCount)
     : forest1_(forest1), forest2_(forest2), leafCount_(leafCount) {}
 
-    void printTree(const TreeNode* root, const std::string& name) const;
 
     void printForests() const;
-
-    void printForest(Forest* forest, const std::string& name) const;
 
     void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest);
 

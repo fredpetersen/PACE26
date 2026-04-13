@@ -36,56 +36,9 @@ bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::s
         return (a.first == b.first && a.second == b.second) || (a.first == b.second && a.second == b.first);
     }
 
-void TwoTreeSolver::printTreeRecursive(const TreeNode* node, const std::string& prefix, bool isLeft) const {
-        if (node == nullptr) {
-                std::cout << prefix << (isLeft ? "├── " : "└── ") << "(null)" << std::endl;
-                return;
-        }
-
-        std::cout << prefix << (isLeft ? "├── " : "└── ")
-                            << (node->isLeaf ? "Leaf(" : "Node(") << node->label << "[" << node->hash << "]" << ")" << std::endl;
-
-        if (node->isLeaf) {
-                return;
-        }
-
-        const std::string childPrefix = prefix + (isLeft ? "│   " : "    ");
-        printTreeRecursive(node->left.get(), childPrefix, true);
-        printTreeRecursive(node->right.get(), childPrefix, false);
-}
-
-void TwoTreeSolver::printTree(const TreeNode* root, const std::string& name) const {
-    std::cout << name << std::endl;
-    if (root == nullptr) {
-        std::cout << "└── (null)" << std::endl;
-        return;
-    }
-
-    std::cout << "└── " << (root->isLeaf ? "Leaf(" : "Node(") << root->label << ")" << std::endl;
-    if (root->isLeaf) {
-        return;
-    }
-
-    printTreeRecursive(root->left.get(), "    ", true);
-    printTreeRecursive(root->right.get(), "    ", false);
-}
-
 void TwoTreeSolver::printForests() const {
-    std::cout << "Forest 1:" << std::endl;
-    for (const auto& root : forest1_->getRoots()) {
-        printTree(root.get(), "Tree:");
-    }
-    std::cout << "Forest 2:" << std::endl;
-    for (const auto& root : forest2_->getRoots()) {
-        printTree(root.get(), "Tree:");
-    }
-}
-
-void TwoTreeSolver::printForest(Forest* forest, const std::string& name) const {
-    std::cout << name << std::endl;
-    for (const auto& root : forest->getRoots()) {
-        printTree(root.get(), "Tree:");
-    }
+    forest1_->print("Forest 1");
+    forest2_->print("Forest 2");
 }
 
 
@@ -237,6 +190,8 @@ std::unordered_set<
     }
 
     int TwoTreeSolver::solve(int k, Forest* forest1, Forest* forest2) {
+        forest1->print("Forest 1:");
+        forest2->print("Forest 2:");
 
         if (k <= 0) {
             return 0;

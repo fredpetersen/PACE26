@@ -32,6 +32,11 @@ class Forest {
 		void setComponentCount(int newCount);
 		int getComponentCount();
 
+		void print(const std::string& name) const;
+
+		void printTreeRecursive(const TreeNode* node, const std::string& prefix, bool isLeft) const;
+		void printTree(const TreeNode* root, const std::string& name) const;
+
 		void addRoot(std::shared_ptr<TreeNode> node);
 		void addLeaf(std::shared_ptr<TreeNode> node);
 

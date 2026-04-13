@@ -29,13 +29,13 @@ int TwoTreeTestSolver::test_contraction() {
 	auto forest = std::make_shared<Forest>();
 	forest->getRoots().insert(parent);
 
-	printForest(forest.get(), "Before contraction:");
+	forest->print("Before contraction:");
 	contract(v, forest);
-	printForest(forest.get(), "After contraction step 1:");
+	forest->print("After contraction step 1:");
 	contract(parent, forest);
-	printForest(forest.get(), "After contraction step 2:");
+	forest->print("After contraction step 2:");
 	contract(child, forest);
-	printForest(forest.get(), "After contraction step 3:");
+	forest->print("After contraction step 3:");
 
 	return 0;
 }
@@ -73,7 +73,7 @@ int TwoTreeTestSolver::test_singelton_leaf() {
 	f1->setLeaves({t1_l, t1_r, t1_single1, t1_single2});
 	f1->setLeavesByLabel({{1, t1_l}, {2, t1_single1}, {3, t1_r}, {4, t1_single2}});
 
-	printForest(f1.get(), "Forest 1");
+	f1->print("Forest 1");
 
 	auto t2_p = std::make_shared<TreeNode>();
 
@@ -107,14 +107,14 @@ int TwoTreeTestSolver::test_singelton_leaf() {
 	f2->setLeaves({t2_l, t2_r1, t2_r2, t2_single1});
 	f2->setLeavesByLabel({{1, t2_r2}, {2, t2_l}, {3, t2_r1}, {4, t2_single1}});
 
-	printForest(f2.get(), "Forest 2");
+	f2->print("Forest 2");
 
 	std::cout << "Cleaning singleton leaves..," << std::endl;
 
 	cleanSingletonLeaves(f1, f2);
 
-	printForest(f1.get(), "Forest 1");
-	printForest(f2.get(), "Forest 2");
+	f1->print("Forest 1");
+	f2->print("Forest 2");
 
 	return 0;
 }

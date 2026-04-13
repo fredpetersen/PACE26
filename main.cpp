@@ -11,11 +11,11 @@
 int main() {
     auto problemInstance = parseInput();
 
-    // TwoTreeSolver solver(problemInstance.forests[0].get(), problemInstance.forests[1].get(), problemInstance.leafCount);
-    TwoTreeTestSolver solver(problemInstance.forests[0].get(), problemInstance.forests[1].get(), problemInstance.leafCount);
+    TwoTreeSolver solver(problemInstance.forests[0].get(), problemInstance.forests[1].get(), problemInstance.leafCount);
+    // TwoTreeTestSolver solver(problemInstance.forests[0].get(), problemInstance.forests[1].get(), problemInstance.leafCount);
 
-    // int result = solver.solve();
-    int result = solver.test();
+    int result = solver.solve();
+    // int result = solver.test();
     solver.solve();
     problemInstance.forests[0]->printForestNewick();
     return 0;
