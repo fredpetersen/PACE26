@@ -228,61 +228,81 @@ std::unordered_set<
     return siblingLeafPairs;
 }
 
-
-int TwoTreeSolver::solve() {
-
-    // Placeholder for the actual solution logic.
-
-    // Merge matching sibling pairs to one leaf
-
-    // Remove vertices that are both root and leaf
-
-    // Contract edges with degree 2 nodes
-
-    // Branch on remaining sibling pairs in tree1
-    auto siblingLeafPairsInForest1 = getSiblingLeafPairs(forest1_);
-    /* Maybe it's actually better to just get a random sibling pair and branch on that,
-    as that way you can update the sibling pairs after each merge/contract operation,
-    which will likely reduce the number of sibling pairs faster than just branching on all of them at once.
-    This is something to experiment with later.*/
-    for (const auto& siblingPair : siblingLeafPairsInForest1) {
-        auto u = siblingPair.first;
-        auto v = siblingPair.second;
-        auto uInForest2 = forest2_->getLeafByLabel(u->label);
-        auto vInForest2 = forest2_->getLeafByLabel(v->label);
-
-        auto forestCopy = *forest1_;
-        auto forest2Copy = *forest2_;
-        auto uCopy = forestCopy.getLeafByLabel(u->label);
-        auto uCopyInForest2 = forest2Copy.getLeafByLabel(u->label);
-        auto vCopy = forestCopy.getLeafByLabel(v->label);
-        auto vCopyInForest2 = forest2Copy.getLeafByLabel(v->label);
-
-        // Case 1: u,v are siblings in tree 1 but in different components in tree2
-        if (lca(uInForest2, vInForest2).second == -1) {
-
-            // first try detaching u in the copy
-            forestCopy.detachChild(uCopy);
-            forest2Copy.detachChild(uCopyInForest2);
-
-            solve();
-
-            // if that doesn't work, then try detaching v in original forest
-            forest1_->detachChild(v);
-            forest2_->detachChild(vInForest2);
-            solve();
-
-        }
-        // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
-        else if (lca(uInForest2, vInForest2).second == 2) {
-            // Merge u and v in forest 1, and contract the edge between the sibling and its parent in forest 2
-        }
-        // Case 3: u,v are siblings in tree 1, but there are 2 or more pendant subtrees in tree2 between u and v
-        else {
-            // Merge u and v in forest 1, and branch on all possible merges of the pendant subtrees in tree 2
-        }
+    int TwoTreeSolver::solve() {
+        return solve(leafCount_, forest1_, forest2_);
     }
 
+    int TwoTreeSolver::solve(int k) {
+        return solve(k, forest1_, forest2_);
+    }
 
-    return 0;
-}
+    int TwoTreeSolver::solve(int k, Forest* forest1, Forest* forest2) {
+
+        if (k <= 0) {
+            return 0;
+        }
+
+        if (forest1 == nullptr || forest2 == nullptr) {
+            return k;
+        }
+
+        // Placeholder for the actual solution logic.
+
+        // Merge matching sibling pairs to one leaf
+
+        // Remove vertices that are both root and leaf
+
+        // Contract edges with degree 2 nodes
+
+        // Branch on remaining sibling pairs in tree1
+        auto siblingLeafPairsInForest1 = getSiblingLeafPairs(forest1);
+        /* Maybe it's actually better to just get a random sibling pair and branch on that,
+        as that way you can update the sibling pairs after each merge/contract operation,
+        which will likely reduce the number of sibling pairs faster than just branching on all of them at once.
+        This is something to experiment with later.*/
+        for (const auto& siblingPair : siblingLeafPairsInForest1) {
+            auto u = siblingPair.first;
+            auto v = siblingPair.second;
+            auto uInForest2 = forest2->getLeafByLabel(u->label);
+            auto vInForest2 = forest2->getLeafByLabel(v->label);
+
+            // Case 1: u,v are siblings in tree 1 but in different components in tree2
+            if (lca(uInForest2, vInForest2).second == -1) {
+                auto forest1Copy = forest1->cloneForest();
+                auto forest2Copy = forest2->cloneForest();
+
+                auto uCopy = forest1Copy->getLeafByLabel(u->label);
+                auto uCopyInForest2 = forest2Copy->getLeafByLabel(u->label);
+                forest1Copy->detachChild(uCopy);
+                forest2Copy->detachChild(uCopyInForest2);
+
+                if (solve(k - 1, forest1Copy.get(), forest2Copy.get()) == 0) {
+                    return 0;
+                }
+
+                auto forest1Copy2 = forest1->cloneForest();
+                auto forest2Copy2 = forest2->cloneForest();
+
+                auto vCopy = forest1Copy2->getLeafByLabel(v->label);
+                auto vCopyInForest2 = forest2Copy2->getLeafByLabel(v->label);
+                forest1Copy2->detachChild(vCopy);
+                forest2Copy2->detachChild(vCopyInForest2);
+
+                if (solve(k - 1, forest1Copy2.get(), forest2Copy2.get()) == 0) {
+                    return 0;
+                }
+
+            }
+            // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
+            else if (lca(uInForest2, vInForest2).second == 2) {
+                // Merge u and v in forest 1, and contract the edge between the sibling and its parent in forest 2
+            }
+            // Case 3: u,v are siblings in tree 1, but there are 2 or more pendant subtrees in tree2 between u and v
+            else {
+                // Merge u and v in forest 1, and branch on all possible merges of the pendant subtrees in tree 2
+            }
+        }
+
+
+        return k;
+    }

@@ -25,7 +25,13 @@ class Forest {
 		std::string treeToNewick(const std::shared_ptr<TreeNode>& node);
 		void printForestNewick();
 
+		std::shared_ptr<Forest> cloneForest() const;
+		std::shared_ptr<TreeNode> cloneTree(
+        const std::shared_ptr<TreeNode>& node,
+        std::unordered_map<const TreeNode*, std::shared_ptr<TreeNode>>& memo);
+
 		void setComponentCount(int newCount);
+		int getComponentCount();
 
 		void addRoot(std::shared_ptr<TreeNode> node);
 		void addLeaf(std::shared_ptr<TreeNode> node);

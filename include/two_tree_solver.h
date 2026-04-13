@@ -58,4 +58,6 @@ public:
     > getSiblingLeafPairs(Forest* forest);
 
     int solve();
+    int solve(int k);
+    int solve(int k, Forest* forest1, Forest* forest2);
 };
