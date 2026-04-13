@@ -1,3 +1,5 @@
+#include <input_reader.h>
+
 #include <cctype>
 #include <iostream>
 #include <memory>
@@ -14,90 +16,80 @@
 #include <tree_node.h>
 #include <forest.h>
 
-struct ParseError : std::runtime_error {
-    using std::runtime_error::runtime_error;
-};
+std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> NewickParser::parseTree(std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel) {
+    std::unordered_set<std::shared_ptr<TreeNode>> leaves;
+    auto root = parseSubtree(leaves, leafByLabel);
+    expect(';');
+    if (position_ != text_.size()) {
+        throw ParseError("Unexpected trailing characters after semicolon");
+    }
+    return {root, leaves};
+}
 
-class NewickParser {
-public:
-    explicit NewickParser(std::string_view text) : text_(text) {}
+std::string_view text_;
+std::size_t position_ = 0;
 
-    std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> parseTree(std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel) {
-        std::unordered_set<std::shared_ptr<TreeNode>> leaves;
-        auto root = parseSubtree(leaves, leafByLabel);
-        expect(';');
-        if (position_ != text_.size()) {
-            throw ParseError("Unexpected trailing characters after semicolon");
-        }
-        return {root, leaves};
+std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel) {
+    if (position_ >= text_.size()) {
+        throw ParseError("Unexpected end of input while parsing subtree");
     }
 
-private:
-    std::string_view text_;
-    std::size_t position_ = 0;
-
-    std::shared_ptr<TreeNode> parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel) {
-        if (position_ >= text_.size()) {
-            throw ParseError("Unexpected end of input while parsing subtree");
-        }
-
-        char current = text_[position_];
-        if (current == '(') {
-            ++position_;
-            auto left = parseSubtree(leaves, leafByLabel);
-            expect(',');
-            auto right = parseSubtree(leaves, leafByLabel);
-            expect(')');
-            auto node = std::make_shared<TreeNode>();
-            node->left = left;
-            node->left->parent = node;
-            node->right = right;
-            node->right->parent = node;
-
-            if (left->isLeaf && right->isLeaf) {
-                node->hash = getCantorHash(node);
-            }
-            return node;
-        }
-
-        if (!std::isdigit(static_cast<unsigned char>(current))) {
-            throw ParseError("Expected digit while parsing leaf label");
-        }
-
-        int label = parseNumber();
+    char current = text_[position_];
+    if (current == '(') {
+        ++position_;
+        auto left = parseSubtree(leaves, leafByLabel);
+        expect(',');
+        auto right = parseSubtree(leaves, leafByLabel);
+        expect(')');
         auto node = std::make_shared<TreeNode>();
-        node->isLeaf = true;
-        node->label = label;
-        node->hash = getCantorHash(node);
-        if (leafByLabel.count(label)) {
-            throw ParseError("Duplicate leaf label: " + std::to_string(label));
+        node->left = left;
+        node->left->parent = node;
+        node->right = right;
+        node->right->parent = node;
+
+        if (left->isLeaf && right->isLeaf) {
+            node->hash = getCantorHash(node);
         }
-        leafByLabel[label] = node;
-        leaves.insert(node);
         return node;
     }
 
-    int parseNumber() {
-        int value = 0;
-        bool hasDigit = false;
-        while (position_ < text_.size() && std::isdigit(static_cast<unsigned char>(text_[position_]))) {
-            hasDigit = true;
-            value = value * 10 + (text_[position_] - '0');
-            ++position_;
-        }
-        if (!hasDigit) {
-            throw ParseError("Expected numeric leaf label");
-        }
-        return value;
+    if (!std::isdigit(static_cast<unsigned char>(current))) {
+        throw ParseError("Expected digit while parsing leaf label");
     }
 
-    void expect(char expected) {
-        if (position_ >= text_.size() || text_[position_] != expected) {
-            throw ParseError(std::string("Expected '") + expected + "'");
-        }
+    int label = parseNumber();
+    auto node = std::make_shared<TreeNode>();
+    node->isLeaf = true;
+    node->label = label;
+    node->hash = getCantorHash(node);
+    if (leafByLabel.count(label)) {
+        throw ParseError("Duplicate leaf label: " + std::to_string(label));
+    }
+    leafByLabel[label] = node;
+    leaves.insert(node);
+    return node;
+}
+
+int NewickParser::parseNumber() {
+    int value = 0;
+    bool hasDigit = false;
+    while (position_ < text_.size() && std::isdigit(static_cast<unsigned char>(text_[position_]))) {
+        hasDigit = true;
+        value = value * 10 + (text_[position_] - '0');
         ++position_;
     }
-};
+    if (!hasDigit) {
+        throw ParseError("Expected numeric leaf label");
+    }
+    return value;
+}
+
+void NewickParser::expect(char expected) {
+    if (position_ >= text_.size() || text_[position_] != expected) {
+        throw ParseError(std::string("Expected '") + expected + "'");
+    }
+    ++position_;
+}
 
 void parseCountsLine(const std::string& line, Instance& instance, std::size_t lineNumber) {
     if (instance.hasCounts) {
