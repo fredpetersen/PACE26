@@ -182,7 +182,7 @@ std::unordered_set<
 }
 
     int TwoTreeSolver::solve() {
-        return solve(leafCount_, forest1_, forest2_);
+        return solve(1, forest1_, forest2_);
     }
 
     int TwoTreeSolver::solve(int k) {
@@ -190,8 +190,8 @@ std::unordered_set<
     }
 
     int TwoTreeSolver::solve(int k, Forest* forest1, Forest* forest2) {
-        forest1->print("Forest 1:");
-        forest2->print("Forest 2:");
+        forest1->print("Forest 1, k=" + std::to_string(k) + ":");
+        forest2->print("Forest 2, k=" + std::to_string(k) + ":");
 
         if (k <= 0) {
             return 0;
@@ -209,6 +209,32 @@ std::unordered_set<
 
         // Contract edges with degree 2 nodes
 
+        auto collectPendantSubtreesBetweenLeaves = [](const std::shared_ptr<TreeNode>& leftLeaf,
+                                                      const std::shared_ptr<TreeNode>& rightLeaf,
+                                                      const std::shared_ptr<TreeNode>& lcaNode) {
+            std::vector<std::shared_ptr<TreeNode>> pendantSubtrees;
+            if (leftLeaf == nullptr || rightLeaf == nullptr || lcaNode == nullptr) {
+                return pendantSubtrees;
+            }
+
+            std::unordered_set<TreeNode*> seen;
+            auto collectFromLeaf = [&](std::shared_ptr<TreeNode> leaf) {
+                auto current = leaf;
+                while (current != nullptr && current->parent != nullptr && current->parent != lcaNode) {
+                    auto parent = current->parent;
+                    auto sibling = (parent->left == current) ? parent->right : parent->left;
+                    if (sibling != nullptr && seen.insert(sibling.get()).second) {
+                        pendantSubtrees.push_back(sibling);
+                    }
+                    current = parent;
+                }
+            };
+
+            collectFromLeaf(leftLeaf);
+            collectFromLeaf(rightLeaf);
+            return pendantSubtrees;
+        };
+
         // Branch on remaining sibling pairs in tree1
         auto siblingLeafPairsInForest1 = getSiblingLeafPairs(forest1);
         /* Maybe it's actually better to just get a random sibling pair and branch on that,
@@ -221,18 +247,31 @@ std::unordered_set<
             auto uInForest2 = forest2->getLeafByLabel(u->label);
             auto vInForest2 = forest2->getLeafByLabel(v->label);
 
+            if (uInForest2 == nullptr || vInForest2 == nullptr) {
+                continue;
+            }
+
+            auto lcaResult = lca(uInForest2, vInForest2);
+            auto distanceInForest2 = lcaResult.second;
+
+            if (distanceInForest2 == 1) {
+                continue; // u and v are siblings in both trees, so we can just merge them and not branch
+            }
+
             // Case 1: u,v are siblings in tree 1 but in different components in tree2
-            if (lca(uInForest2, vInForest2).second == -1) {
+            if (distanceInForest2 == -1) {
                 auto forest1Copy = forest1->cloneForest();
                 auto forest2Copy = forest2->cloneForest();
 
                 auto uCopy = forest1Copy->getLeafByLabel(u->label);
                 auto uCopyInForest2 = forest2Copy->getLeafByLabel(u->label);
-                forest1Copy->detachChild(uCopy);
-                forest2Copy->detachChild(uCopyInForest2);
+                if (uCopy != nullptr && uCopyInForest2 != nullptr && uCopy->parent != nullptr && uCopyInForest2->parent != nullptr) {
+                    forest1Copy->detachChild(uCopy);
+                    forest2Copy->detachChild(uCopyInForest2);
 
-                if (solve(k - 1, forest1Copy.get(), forest2Copy.get()) == 0) {
-                    return 0;
+                    if (solve(k - 1, forest1Copy.get(), forest2Copy.get()) == 0) {
+                        return 0;
+                    }
                 }
 
                 auto forest1Copy2 = forest1->cloneForest();
@@ -240,21 +279,93 @@ std::unordered_set<
 
                 auto vCopy = forest1Copy2->getLeafByLabel(v->label);
                 auto vCopyInForest2 = forest2Copy2->getLeafByLabel(v->label);
-                forest1Copy2->detachChild(vCopy);
-                forest2Copy2->detachChild(vCopyInForest2);
+                if (vCopy != nullptr && vCopyInForest2 != nullptr && vCopy->parent != nullptr && vCopyInForest2->parent != nullptr) {
+                    forest1Copy2->detachChild(vCopy);
+                    forest2Copy2->detachChild(vCopyInForest2);
 
-                if (solve(k - 1, forest1Copy2.get(), forest2Copy2.get()) == 0) {
-                    return 0;
+                    if (solve(k - 1, forest1Copy2.get(), forest2Copy2.get()) == 0) {
+                        return 0;
+                    }
                 }
 
             }
             // Case 2: u,v are siblings in tree 1, but u is sibling with parent of v in tree2 (or vice versa)
-            else if (lca(uInForest2, vInForest2).second == 2) {
-                // Merge u and v in forest 1, and contract the edge between the sibling and its parent in forest 2
+            else if (distanceInForest2 == 2) {
+                auto forest1Copy = forest1->cloneForest();
+                auto forest2Copy = forest2->cloneForest();
+                auto uCopyInForest2 = forest2Copy->getLeafByLabel(u->label);
+                auto vCopyInForest2 = forest2Copy->getLeafByLabel(v->label);
+
+                // Detach the pendant subtree in tree 2 that is between u and v
+                auto lcaResultInCopy = lca(uCopyInForest2, vCopyInForest2);
+                auto pendantSubtrees = collectPendantSubtreesBetweenLeaves(uCopyInForest2, vCopyInForest2, lcaResultInCopy.first);
+
+                if (!pendantSubtrees.empty() && pendantSubtrees[0] != nullptr && pendantSubtrees[0]->parent != nullptr) {
+                    forest2Copy->detachChild(pendantSubtrees[0]);
+
+                    if (solve(k - 1, forest1Copy.get(), forest2Copy.get()) == 0) {
+                        return 0;
+                    }
+                }
+
+
             }
             // Case 3: u,v are siblings in tree 1, but there are 2 or more pendant subtrees in tree2 between u and v
             else {
-                // Merge u and v in forest 1, and branch on all possible merges of the pendant subtrees in tree 2
+                // Branch on three cases: detach u, detach v, or detach the b many pendant subtrees in tree 2 that are between u and v
+                auto forest1Copy = forest1->cloneForest();
+                auto forest2Copy = forest2->cloneForest();
+
+                auto uCopy = forest1Copy->getLeafByLabel(u->label);
+                auto uCopyInForest2 = forest2Copy->getLeafByLabel(u->label);
+                if (uCopy != nullptr && uCopyInForest2 != nullptr && uCopy->parent != nullptr && uCopyInForest2->parent != nullptr) {
+                    forest1Copy->detachChild(uCopy);
+                    forest2Copy->detachChild(uCopyInForest2);
+
+                    if (solve(k - 1, forest1Copy.get(), forest2Copy.get()) == 0) {
+                        return 0;
+                    }
+                }
+
+                auto forest1Copy2 = forest1->cloneForest();
+                auto forest2Copy2 = forest2->cloneForest();
+
+                auto vCopy = forest1Copy2->getLeafByLabel(v->label);
+                auto vCopyInForest2 = forest2Copy2->getLeafByLabel(v->label);
+                if (vCopy != nullptr && vCopyInForest2 != nullptr && vCopy->parent != nullptr && vCopyInForest2->parent != nullptr) {
+                    forest1Copy2->detachChild(vCopy);
+                    forest2Copy2->detachChild(vCopyInForest2);
+
+                    if (solve(k - 1, forest1Copy2.get(), forest2Copy2.get()) == 0) {
+                        return 0;
+                    }
+                }
+
+                auto forest1Copy3 = forest1->cloneForest();
+                auto forest2Copy3 = forest2->cloneForest();
+                auto uCopyInForest2Case3 = forest2Copy3->getLeafByLabel(u->label);
+                auto vCopyInForest2Case3 = forest2Copy3->getLeafByLabel(v->label);
+
+                auto lcaResultInCopy = lca(uCopyInForest2Case3, vCopyInForest2Case3);
+                auto pendantSubtrees = collectPendantSubtreesBetweenLeaves(
+                    uCopyInForest2Case3,
+                    vCopyInForest2Case3,
+                    lcaResultInCopy.first
+                );
+
+                if (!pendantSubtrees.empty()) {
+                    int detachedPendantCount = 0;
+                    for (const auto& subtreeRoot : pendantSubtrees) {
+                        if (subtreeRoot != nullptr && subtreeRoot->parent != nullptr) {
+                            forest2Copy3->detachChild(subtreeRoot);
+                            detachedPendantCount++;
+                        }
+                    }
+
+                    if (detachedPendantCount > 0 && solve(k - detachedPendantCount, forest1Copy3.get(), forest2Copy3.get()) == 0) {
+                        return 0;
+                    }
+                }
             }
         }
 
