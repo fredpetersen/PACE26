@@ -4,7 +4,67 @@
 
 int TwoTreeTestSolver::test_lca() {
 	//TODO: implement
-	std::cout << "test_lca() not implemented" << std::endl;
+	std::cout << std::endl << "Testing the Lowest Common Ancestor (lca) function" << std::endl;
+
+	auto forest = std::make_shared<Forest>();
+
+	auto n1 = std::make_shared<TreeNode>();
+	n1->isLeaf = false;
+	n1->label = 1;
+
+	auto n2 = std::make_shared<TreeNode>();
+	n2->isLeaf = false;
+	n2->label = 2;
+
+	auto n4 = std::make_shared<TreeNode>();
+	n4->isLeaf = true;
+	n4->label = 4;
+
+	auto n3 = std::make_shared<TreeNode>();
+	n3->isLeaf = true;
+	n3->label = 3;
+
+	auto n5 = std::make_shared<TreeNode>();
+	n5->isLeaf = false;
+	n5->label = 5;
+
+	auto n6 = std::make_shared<TreeNode>();
+	n6->isLeaf = true;
+	n6->label = 6;
+
+	// Wire up parent/child links
+	n1->left = n2;
+	n1->right = n3;
+	n2->parent = n1;
+	n2->left = n4;
+	n4->parent = n2;
+	n3->parent = n1;
+	n5->right = n6;
+	n6->parent = n5;
+
+	// Add roots and leaves to forest
+	forest->setRoots({n1, n5});
+
+	forest->setLeaves({n3, n4, n6});
+	forest->setComponentCount(2);
+	forest->setLeavesByLabel({{1, n4}, {2, n3}, {3, n6}});
+
+	std::pair<std::shared_ptr<TreeNode>, int> expected = {n1, 1};
+	auto actual = lca(n2, n3);
+	std::cout << "Expected: {" << expected.first << ", " << expected.second << "}, Actual: {" << actual.first << ", " << actual.second << "}" << std::endl;
+
+	expected = {n1, 2};
+	actual = lca(n4, n3);
+	std::cout << "Expected: {" << expected.first << ", " << expected.second << "}, Actual: {" << actual.first << ", " << actual.second << "}" << std::endl;
+
+	expected = {n1, 1};
+	actual = lca(n4, n1);
+	std::cout << "Expected: {" << expected.first << ", " << expected.second << "}, Actual: {" << actual.first << ", " << actual.second << "}" << std::endl;
+
+	expected = {nullptr, -1};
+	actual = lca(n3, n6);
+	std::cout << "Expected: {" << expected.first << ", " << expected.second << "}, Actual: {" << actual.first << ", " << actual.second << "}" << std::endl;
+
 	return 0;
 }
 
