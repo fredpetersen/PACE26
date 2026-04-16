@@ -13,7 +13,7 @@ struct Instance {
 
     std::vector<std::string> rawTrees;
     std::vector<std::size_t> forestLineNumbers;
-    std::vector<std::unique_ptr<Forest>> forests;
+    std::vector<std::shared_ptr<Forest>> forests;
     std::unordered_map<std::string, std::string> parameters;
     std::unordered_map<std::string, std::string> systemValues;
 };

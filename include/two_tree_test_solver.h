@@ -4,7 +4,7 @@
 
 class TwoTreeTestSolver : public TwoTreeSolver {
 	public:
-		inline TwoTreeTestSolver(Forest* forest1, Forest* forest2, int leafCount)
+		inline TwoTreeTestSolver(std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2, int leafCount)
 	: TwoTreeSolver(forest1, forest2, leafCount) {}
 
 		int test_lca();
@@ -16,6 +16,10 @@ class TwoTreeTestSolver : public TwoTreeSolver {
 		int testgetLeafByLabel();
 
 		int testGetSiblingsPairs();
+
+		int testCantorPair();
+
+		int testInitCantorMerging();
 
 		int test();
 };

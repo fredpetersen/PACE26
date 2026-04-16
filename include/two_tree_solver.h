@@ -20,39 +20,31 @@
 
 Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be considered different pairs
 */
-struct SiblingPairHash {
-    size_t operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept;
-};
-
-struct SiblingPairEq {
-    bool operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
-                    const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept;
-};
 
 class TwoTreeSolver {
-  Forest* forest1_;
-  Forest* forest2_;
+  std::shared_ptr<Forest> forest1_;
+  std::shared_ptr<Forest> forest2_;
   int leafCount_;
+  std::unordered_map<int, int> cantorMap_; //could be <int, byte>
 
 public:
-    inline TwoTreeSolver(Forest* forest1, Forest* forest2, int leafCount)
+    inline TwoTreeSolver(std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2, int leafCount)
     : forest1_(forest1), forest2_(forest2), leafCount_(leafCount) {}
 
 
     void printForests() const;
 
-    void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest);
+    void printCantorMap() const;
+
+    void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest); //should use Forest* instead
+
+    void initCantorMap(std::vector<std::shared_ptr<Forest>> forests);
 
     void contract(std::shared_ptr<TreeNode> v, std::shared_ptr<Forest> forest);
 
     std::pair<std::shared_ptr<TreeNode>, int> lca(std::shared_ptr<TreeNode> u, std::shared_ptr<TreeNode> v);
 
-    std::unordered_set<
-        std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>,
-        SiblingPairHash,SiblingPairEq
-    > getSiblingLeafPairs(Forest* forest);
-
     int solve();
     int solve(int k);
-    int solve(int k, Forest* forest1, Forest* forest2);
+    int solve(int k, std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2);
 };

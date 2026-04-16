@@ -5,8 +5,18 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <vector>
 
 #include <tree_node.h>
+
+struct SiblingPairHash {
+    size_t operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept;
+};
+
+struct SiblingPairEq {
+    bool operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
+                    const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept;
+};
 
 class Forest {
 	std::unordered_set<std::shared_ptr<TreeNode>> roots_;
@@ -46,6 +56,7 @@ class Forest {
 		std::unordered_set<std::shared_ptr<TreeNode>> getRoots();
 		std::unordered_set<std::shared_ptr<TreeNode>> getLeaves();
 		std::shared_ptr<TreeNode> getLeafByLabel(int label);
+		std::unordered_set<std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>, SiblingPairHash,SiblingPairEq> getSiblingLeafPairs();
 
 		void setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots);
 		void setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves);
