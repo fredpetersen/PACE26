@@ -21,10 +21,22 @@ bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::s
         return (a.first == b.first && a.second == b.second) || (a.first == b.second && a.second == b.first);
     }
 
-std::unordered_set<std::shared_ptr<TreeNode>> roots_;
-std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
-int componentCount_;
-std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel_;
+
+void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node) {
+	
+	leaves_.erase(node->left);
+	leaves_.erase(node->right);
+	leafByLabel_.erase(node->left->label);
+	leafByLabel_.erase(node->right->label);
+	nodeByCantor_.erase(node->left->hash);
+	nodeByCantor_.erase(node->right->hash);
+
+	mergeCherry(node);
+
+	leaves_.insert(node);
+	leafByLabel_[node->label] = node;
+	nodeByCantor_[node->hash] = node;
+}
 
 void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	//TODO: Is this really how you assign shared pointers?
@@ -174,6 +186,11 @@ std::shared_ptr<TreeNode> Forest::getLeafByLabel(int label) {
 	return leafByLabel_[label];
 }
 
+std::shared_ptr<TreeNode> Forest::getNodeByCantor(int cantor) {
+	return nodeByCantor_[cantor];
+}
+
+
 /**
     * Returns a set of all sibling leaf pairs in the forest.
     *
@@ -213,4 +230,8 @@ void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) 
 }
 void Forest::setLeavesByLabel(std::unordered_map<int, std::shared_ptr<TreeNode>> newLeavesByLabel) {
 	leafByLabel_ = newLeavesByLabel;
+}
+
+void Forest::setNodesByCantor(std::unordered_map<int, std::shared_ptr<TreeNode>> newNodesByCantor) {
+	nodeByCantor_ = newNodesByCantor;
 }

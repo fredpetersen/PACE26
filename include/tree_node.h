@@ -2,8 +2,10 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 struct TreeNode {
+    std::string newickRep = "";
     bool isLeaf = false;
     int label = 0;
     long hash = 0;
@@ -15,3 +17,5 @@ struct TreeNode {
 int getCantorHash(int a, int b);
 
 void setCantorHashOfNode(std::shared_ptr<TreeNode> node);
+
+void mergeCherry(std::shared_ptr<TreeNode> node);

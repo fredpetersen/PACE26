@@ -26,3 +26,19 @@ void setCantorHashOfNode(std::shared_ptr<TreeNode> node) {
         throw std::runtime_error("Cantor Hash is not defined for node of this type.");
     }
 }
+
+void mergeCherry(std::shared_ptr<TreeNode> node) {
+    auto l = node->left;
+    auto r = node->right;
+
+    if (l->isLeaf && r->isLeaf) {
+        node->hash = (l->hash) < r->hash ? l->hash : r->hash;
+        node->label = (l->label) < r->label ? l->label : r->label;
+        node->newickRep = "(" + std::to_string(l->label) + "," + std::to_string(r->label) + ")";
+        node->left = nullptr;
+        node->right = nullptr;
+        node->isLeaf = true;
+    } else {
+        std::cout << "Left or Right node not leaf" << std::endl;
+    }
+}

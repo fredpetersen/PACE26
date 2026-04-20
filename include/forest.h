@@ -23,14 +23,16 @@ class Forest {
 	std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
 	int componentCount_;
 	std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel_;
+	std::unordered_map<int, std::shared_ptr<TreeNode>> nodeByCantor_;
 
 	public:
-		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}) {}
+		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}), nodeByCantor_({}) {}
 
 		inline Forest(std::unordered_set<std::shared_ptr<TreeNode>> roots, std::unordered_set<std::shared_ptr<TreeNode>> leaves,
-			std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel)
-			: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel) {}
+			std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel, std::unordered_map<int, std::shared_ptr<TreeNode>> nodeByCantor)
+			: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel), nodeByCantor_(nodeByCantor) {}
 
+		void forestMergeCherry(std::shared_ptr<TreeNode> node);
 	    void detachChild(std::shared_ptr<TreeNode> child);
 		std::string treeToNewick(const std::shared_ptr<TreeNode>& node);
 		void printForestNewick();
@@ -56,9 +58,11 @@ class Forest {
 		std::unordered_set<std::shared_ptr<TreeNode>> getRoots();
 		std::unordered_set<std::shared_ptr<TreeNode>> getLeaves();
 		std::shared_ptr<TreeNode> getLeafByLabel(int label);
+		std::shared_ptr<TreeNode> getNodeByCantor(int cantor);
 		std::unordered_set<std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>, SiblingPairHash,SiblingPairEq> getSiblingLeafPairs();
 
 		void setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots);
 		void setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves);
 		void setLeavesByLabel(std::unordered_map<int, std::shared_ptr<TreeNode>> newLeavesByLabel);
+		void setNodesByCantor(std::unordered_map<int, std::shared_ptr<TreeNode>> newNodeByCantor);
 };

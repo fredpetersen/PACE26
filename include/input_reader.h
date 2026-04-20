@@ -17,13 +17,15 @@ class NewickParser {
 public:
     inline NewickParser(std::string_view text) : text_(text) {}
 
-    std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> parseTree(std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel);
+    std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> parseTree(std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel,
+                                                                                            std::unordered_map<int, std::shared_ptr<TreeNode>>& nodeByCantor);
 
 private:
     std::string_view text_;
     std::size_t position_ = 0;
 
-    std::shared_ptr<TreeNode> parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel);
+    std::shared_ptr<TreeNode> parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel,
+                                                                                            std::unordered_map<int, std::shared_ptr<TreeNode>>& nodeByCantor);
 
     int parseNumber();
 

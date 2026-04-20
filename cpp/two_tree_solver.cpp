@@ -43,21 +43,26 @@ void TwoTreeSolver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std
 }
 
 //TODO: Finish implementation (actually merge the found common cherries, and check any new pairs)
-
 void TwoTreeSolver::initCantorMap(std::vector<std::shared_ptr<Forest>> forests) {
     for (auto &forest : forests) {
         auto siblingPairs = forest->getSiblingLeafPairs();
         for (auto &pair : siblingPairs) {
             auto parent = pair.first->parent;
-            if (cantorMap_.find(parent->hash) == cantorMap_.end()) {
-                cantorMap_.insert({parent->hash, 1});
+            auto cantor = parent->hash;
+            if (cantorMap_.find(cantor) == cantorMap_.end()) {
+                cantorMap_.insert({cantor, 1});
             } else {
-                auto v = cantorMap_[parent->hash];
-                if (v == forests.size() - 1) { //If the specific cantor value is found in all trees (i.e. common pendant subtree), merge
+                auto count = cantorMap_[cantor];
+                if (count == forests.size() - 1) { //If the specific cantor value is found in all trees (i.e. common pendant subtree), merge
                     //TODO: implement merging logic
-                    std::cout << "HASH VALUE: " << parent->hash << ", FOUND IN EACH TREE!!"  << std::endl;
+                    std::cout << "HASH VALUE: " << cantor << ", FOUND IN EACH TREE!!"  << std::endl;
+                    for (auto &mergeForest : forests) {
+                        mergeForest->forestMergeCherry(mergeForest->getNodeByCantor(cantor));
+                        
+                    }
+                } else {
+                    cantorMap_[cantor] += 1;
                 }
-                cantorMap_[parent->hash] += 1;
             }
         }
     }
