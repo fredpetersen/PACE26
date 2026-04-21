@@ -60,6 +60,7 @@ class Forest {
 		std::shared_ptr<TreeNode> getLeafByLabel(int label);
 		std::shared_ptr<TreeNode> getNodeByCantor(int cantor);
 		std::unordered_set<std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>, SiblingPairHash,SiblingPairEq> getSiblingLeafPairs();
+		std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>> getOneSiblingPair();
 
 		void setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots);
 		void setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves);

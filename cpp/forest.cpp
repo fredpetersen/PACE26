@@ -23,7 +23,7 @@ bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::s
 
 
 void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node) {
-	
+
 	leaves_.erase(node->left);
 	leaves_.erase(node->right);
 	leafByLabel_.erase(node->left->label);
@@ -55,7 +55,7 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 
 std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
 	if (!node) return "";
-	if (node->isLeaf) return std::to_string(node->label);
+	if (node->isLeaf) return node->newickRep;
 
 	std::string result = "(";
 	if (node->left)  result += treeToNewick(node->left);
@@ -220,6 +220,25 @@ std::unordered_set<
         }
     }
     return siblingLeafPairs;
+}
+
+/**
+ * Returns one sibling leaf pair if it exists, otherwise returns {nullptr, nullptr}.
+ * This is a helper function that can be used in the solve() method to quickly find a sibling pair
+ * without having to compute the entire set of sibling pairs.
+ *
+ * It runs in O(n) time, but is likely faster in practice than getSiblingLeafPairs() since it can return early as soon as it finds a sibling pair.
+ */
+std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>> Forest::getOneSiblingPair() {
+		for (const auto& leaf : leaves_) {
+				if (leaf->parent != nullptr) {
+						auto parent = leaf->parent;
+						if (parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
+								return {parent->left, parent->right};
+						}
+				}
+		}
+		return {nullptr, nullptr}; // No sibling pairs found
 }
 
 void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
