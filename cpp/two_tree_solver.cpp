@@ -58,7 +58,7 @@ void TwoTreeSolver::initCantorMap(std::vector<std::shared_ptr<Forest>> forests) 
                     std::cout << "HASH VALUE: " << cantor << ", FOUND IN EACH TREE!!"  << std::endl;
                     for (auto &mergeForest : forests) {
                         mergeForest->forestMergeCherry(mergeForest->getNodeByCantor(cantor));
-                        
+
                     }
                 } else {
                     cantorMap_[cantor] += 1;
@@ -216,14 +216,14 @@ int TwoTreeSolver::solve(int k, std::shared_ptr<Forest> forest1, std::shared_ptr
         return pendantSubtrees;
     };
 
+    int index = 0;
+
     // Branch on remaining sibling pairs in tree1
-    auto siblingLeafPairInForest1 = forest1->getOneSiblingPair();
-    /* Maybe it's actually better to just get a random sibling pair and branch on that,
-    as that way you can update the sibling pairs after each merge/contract operation,
-    which will likely reduce the number of sibling pairs faster than just branching on all of them at once.
-    This is something to experiment with later.*/
-    auto u = siblingLeafPairInForest1.first;
-    auto v = siblingLeafPairInForest1.second;
+    auto siblingLeafPairInForest1 = forest1->getOneSiblingPair(index);
+
+    index = siblingLeafPairInForest1.first;
+    auto u = siblingLeafPairInForest1.second.first;
+    auto v = siblingLeafPairInForest1.second.second;
     auto uInForest2 = forest2->getLeafByLabel(u->label);
     auto vInForest2 = forest2->getLeafByLabel(v->label);
 
@@ -233,10 +233,18 @@ int TwoTreeSolver::solve(int k, std::shared_ptr<Forest> forest1, std::shared_ptr
 
     auto lcaResult = lca(uInForest2, vInForest2);
     auto distanceInForest2 = lcaResult.second;
+    while (distanceInForest2 == 1) {
+        // If u and v are siblings in both trees, skip for now
+        // Maybe we should merge, but unsure if that would cause problems when we have more than 2 trees
+        auto siblingLeafPairInForest1 = forest1->getOneSiblingPair(index);
+        index = siblingLeafPairInForest1.first;
+        auto u = siblingLeafPairInForest1.second.first;
+        auto v = siblingLeafPairInForest1.second.second;
+        auto uInForest2 = forest2->getLeafByLabel(u->label);
+        auto vInForest2 = forest2->getLeafByLabel(v->label);
 
-    if (distanceInForest2 == 1) {
-        // This sibling pair is fine for this pair of forests, but isn't common for all trees
-        // Fidn the next sibling pair to branch on.
+        auto lcaResult = lca(uInForest2, vInForest2);
+        auto distanceInForest2 = lcaResult.second;
     }
 
     // Case 1: u,v are siblings in tree 1 but in different components in tree2

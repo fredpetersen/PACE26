@@ -223,22 +223,30 @@ std::unordered_set<
 }
 
 /**
- * Returns one sibling leaf pair if it exists, otherwise returns {nullptr, nullptr}.
+ * Takes in an optional startIndex parameter to allow for iterating through sibling pairs one at a time
+ * across multiple calls, which can be useful for branching on one sibling pair at a time in the solve() method.
+ *
+ * Returns one sibling leaf pair if it exists, as well as index of pair. Otherwise returns {-1, {nullptr, nullptr}}.
  * This is a helper function that can be used in the solve() method to quickly find a sibling pair
  * without having to compute the entire set of sibling pairs.
  *
  * It runs in O(n) time, but is likely faster in practice than getSiblingLeafPairs() since it can return early as soon as it finds a sibling pair.
  */
-std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>> Forest::getOneSiblingPair() {
-		for (const auto& leaf : leaves_) {
+std::pair<int, std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>> Forest::getOneSiblingPair(int startIndex) {
+		int currentIndex = startIndex;
+		auto it = leaves_.begin();
+		it = std::next(it, currentIndex);
+		for (; it != leaves_.end(); ++it) {
+				auto leaf = *it;
 				if (leaf->parent != nullptr) {
 						auto parent = leaf->parent;
 						if (parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
-								return {parent->left, parent->right};
+								return {currentIndex, {parent->left, parent->right}};
 						}
 				}
+				currentIndex++;
 		}
-		return {nullptr, nullptr}; // No sibling pairs found
+		return {-1, {nullptr, nullptr}}; // No sibling pairs found
 }
 
 void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
