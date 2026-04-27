@@ -28,14 +28,11 @@ void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node) {
 	leaves_.erase(node->right);
 	leafByLabel_.erase(node->left->label);
 	leafByLabel_.erase(node->right->label);
-	nodeByCantor_.erase(node->left->hash);
-	nodeByCantor_.erase(node->right->hash);
 
 	mergeCherry(node);
 
 	leaves_.insert(node);
 	leafByLabel_[node->label] = node;
-	nodeByCantor_[node->hash] = node;
 }
 
 void Forest::detachChild(std::shared_ptr<TreeNode> child) {
@@ -51,6 +48,10 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	} else {
 		std::cout << "The given node does not have that child" << std::endl;
 	}
+}
+
+void Forest::detachByLabel(int label) {
+	detachChild(getLeafByLabel(label));
 }
 
 std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
@@ -75,7 +76,6 @@ std::shared_ptr<TreeNode> Forest::cloneTree(
         auto clone = std::make_shared<TreeNode>();
         clone->isLeaf = node->isLeaf;
         clone->label = node->label;
-        clone->hash = node->hash;
 
         if (node->left != nullptr) {
             clone->left = cloneTree(node->left);
@@ -186,11 +186,6 @@ std::shared_ptr<TreeNode> Forest::getLeafByLabel(int label) {
 	return leafByLabel_[label];
 }
 
-std::shared_ptr<TreeNode> Forest::getNodeByCantor(int cantor) {
-	return nodeByCantor_[cantor];
-}
-
-
 /**
     * Returns a set of all sibling leaf pairs in the forest.
     *
@@ -257,8 +252,4 @@ void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) 
 }
 void Forest::setLeavesByLabel(std::unordered_map<int, std::shared_ptr<TreeNode>> newLeavesByLabel) {
 	leafByLabel_ = newLeavesByLabel;
-}
-
-void Forest::setNodesByCantor(std::unordered_map<int, std::shared_ptr<TreeNode>> newNodesByCantor) {
-	nodeByCantor_ = newNodesByCantor;
 }

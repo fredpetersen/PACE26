@@ -16,10 +16,9 @@
 #include <tree_node.h>
 #include <forest.h>
 
-std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> NewickParser::parseTree(std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel,
-                                                                                                    std::unordered_map<int, std::shared_ptr<TreeNode>>& nodeByCantor) {
+std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> NewickParser::parseTree(std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel) {
     std::unordered_set<std::shared_ptr<TreeNode>> leaves;
-    auto root = parseSubtree(leaves, leafByLabel, nodeByCantor);
+    auto root = parseSubtree(leaves, leafByLabel);
     expect(';');
     if (position_ != text_.size()) {
         throw ParseError("Unexpected trailing characters after semicolon");
@@ -30,8 +29,7 @@ std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode
 std::string_view text_;
 std::size_t position_ = 0;
 
-std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel,
-                                                                                                    std::unordered_map<int, std::shared_ptr<TreeNode>>& nodeByCantor) {
+std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<int, std::shared_ptr<TreeNode>>& leafByLabel) {
     if (position_ >= text_.size()) {
         throw ParseError("Unexpected end of input while parsing subtree");
     }
@@ -39,9 +37,9 @@ std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::sha
     char current = text_[position_];
     if (current == '(') {
         ++position_;
-        auto left = parseSubtree(leaves, leafByLabel, nodeByCantor);
+        auto left = parseSubtree(leaves, leafByLabel);
         expect(',');
-        auto right = parseSubtree(leaves, leafByLabel, nodeByCantor);
+        auto right = parseSubtree(leaves, leafByLabel);
         expect(')');
         auto node = std::make_shared<TreeNode>();
         node->left = left;
@@ -49,10 +47,6 @@ std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::sha
         node->right = right;
         node->right->parent = node;
 
-        if (left->isLeaf && right->isLeaf) {
-            setCantorHashOfNode(node);
-            nodeByCantor[node->hash] = node;
-        }
         return node;
     }
 
@@ -65,8 +59,6 @@ std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::sha
     node->isLeaf = true;
     node->label = label;
     node->newickRep = std::to_string(label);
-    setCantorHashOfNode(node);
-    nodeByCantor[node->hash] = node;
     if (leafByLabel.count(label)) {
         throw ParseError("Duplicate leaf label: " + std::to_string(label));
     }
@@ -219,12 +211,11 @@ Instance parseInput() {
             try {
                 NewickParser parser(newick);
                 auto leafByLabel = std::unordered_map<int, std::shared_ptr<TreeNode>>();
-                auto nodeByCantor = std::unordered_map<int, std::shared_ptr<TreeNode>>();
-                auto parsed = parser.parseTree(leafByLabel, nodeByCantor);
+                auto parsed = parser.parseTree(leafByLabel);
                 auto tree = parsed.first;
                 auto leaves = std::move(parsed.second);
                 validateTree(tree.get(), instance.leafCount);
-                auto forest = std::make_shared<Forest>(std::unordered_set<std::shared_ptr<TreeNode>>{tree}, leaves, leafByLabel, nodeByCantor);
+                auto forest = std::make_shared<Forest>(std::unordered_set<std::shared_ptr<TreeNode>>{tree}, leaves, leafByLabel);
                 instance.forests.push_back(std::make_shared<Forest>(*forest));
             } catch (const ParseError& err) {
                 throw ParseError("Line " + std::to_string(forestLineNumber) + ": " + err.what());

@@ -25,7 +25,6 @@ class TwoTreeSolver {
   std::shared_ptr<Forest> forest1_;
   std::shared_ptr<Forest> forest2_;
   int leafCount_;
-  std::unordered_map<int, int> cantorMap_; //could be <int, byte>
 
 public:
     inline TwoTreeSolver(std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2, int leafCount)
@@ -34,17 +33,15 @@ public:
 
     void printForests() const;
 
-    void printCantorMap() const;
-
     void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest); //should use Forest* instead
-
-    void initCantorMap(std::vector<std::shared_ptr<Forest>> forests);
 
     void contract(std::shared_ptr<TreeNode> v, std::shared_ptr<Forest> forest);
 
+    std::vector<std::shared_ptr<Forest>> cloneForests(std::vector<std::shared_ptr<Forest>> forests);
+
     std::pair<std::shared_ptr<TreeNode>, int> lca(std::shared_ptr<TreeNode> u, std::shared_ptr<TreeNode> v);
 
-    int solve();
-    int solve(int k);
-    int solve(int k, std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2);
+    std::shared_ptr<Forest> solve();
+    std::pair<bool, std::shared_ptr<Forest>> solve(int k);
+    std::pair<bool, std::vector<std::shared_ptr<Forest>>> solve(int k, std::vector<std::shared_ptr<Forest>> forests);
 };

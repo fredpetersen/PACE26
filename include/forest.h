@@ -23,17 +23,19 @@ class Forest {
 	std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
 	int componentCount_;
 	std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel_;
-	std::unordered_map<int, std::shared_ptr<TreeNode>> nodeByCantor_;
+	std::unordered_set<std::shared_ptr<TreeNode>> mergedNodes_;
 
 	public:
-		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}), nodeByCantor_({}) {}
+		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}), mergedNodes_({}) {}
 
 		inline Forest(std::unordered_set<std::shared_ptr<TreeNode>> roots, std::unordered_set<std::shared_ptr<TreeNode>> leaves,
-			std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel, std::unordered_map<int, std::shared_ptr<TreeNode>> nodeByCantor)
-			: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel), nodeByCantor_(nodeByCantor) {}
+			std::unordered_map<int, std::shared_ptr<TreeNode>> leafByLabel)
+			: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel), mergedNodes_({}) {}
 
 		void forestMergeCherry(std::shared_ptr<TreeNode> node);
+		void expandMergedNodes();
 	    void detachChild(std::shared_ptr<TreeNode> child);
+		void detachByLabel(int label);
 		std::string treeToNewick(const std::shared_ptr<TreeNode>& node);
 		void printForestNewick();
 
@@ -58,12 +60,10 @@ class Forest {
 		std::unordered_set<std::shared_ptr<TreeNode>> getRoots();
 		std::unordered_set<std::shared_ptr<TreeNode>> getLeaves();
 		std::shared_ptr<TreeNode> getLeafByLabel(int label);
-		std::shared_ptr<TreeNode> getNodeByCantor(int cantor);
 		std::unordered_set<std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>, SiblingPairHash,SiblingPairEq> getSiblingLeafPairs();
 		std::pair<int, std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>> getOneSiblingPair(int startIndex = 0);
 
 		void setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots);
 		void setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves);
 		void setLeavesByLabel(std::unordered_map<int, std::shared_ptr<TreeNode>> newLeavesByLabel);
-		void setNodesByCantor(std::unordered_map<int, std::shared_ptr<TreeNode>> newNodeByCantor);
 };

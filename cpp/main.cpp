@@ -9,13 +9,15 @@
 // #include "input_reader.cpp"
 
 int main() {
+    std::cout << "Starting Program" << std::endl;
+
     auto problemInstance = parseInput();
 
-    // TwoTreeSolver solver(problemInstance.forests[0], problemInstance.forests[1], problemInstance.leafCount);
-    TwoTreeTestSolver solver(problemInstance.forests[0], problemInstance.forests[1], problemInstance.leafCount);
+    TwoTreeSolver solver(problemInstance.forests[0], problemInstance.forests[1], problemInstance.leafCount);
+    // TwoTreeTestSolver solver(problemInstance.forests[0], problemInstance.forests[1], problemInstance.leafCount);
 
-    // int result = solver.solve();
-    int result = solver.test();
+    auto result = solver.solve();
+    // int result = solver.test();
     
     problemInstance.forests[0]->printForestNewick();
     return 0;

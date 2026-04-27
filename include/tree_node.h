@@ -14,8 +14,4 @@ struct TreeNode {
     std::shared_ptr<TreeNode> right;
 };
 
-int getCantorHash(int a, int b);
-
-void setCantorHashOfNode(std::shared_ptr<TreeNode> node);
-
 void mergeCherry(std::shared_ptr<TreeNode> node);
