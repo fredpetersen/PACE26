@@ -6,8 +6,8 @@
 Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be considered different pairs
 */
 size_t SiblingPairHash::operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept {
-        auto a = p.first->label;
-        auto b = p.second->label;
+        auto a = stoi(p.first->label);
+        auto b = stoi(p.second->label);
         if (a > b) {
             auto c = a;
             a = b;
@@ -16,6 +16,7 @@ size_t SiblingPairHash::operator()(const std::pair<std::shared_ptr<TreeNode>, st
         return ((a + b)*(a + b + 1))/2 + b;
     }
 
+//TODO: Check string equality actually works
 bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
                     const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept {
         return (a.first == b.first && a.second == b.second) || (a.first == b.second && a.second == b.first);
@@ -23,17 +24,52 @@ bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::s
 
 
 void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node) {
+	auto l = node->left;
+	auto r = node->right;
+    if (l->isLeaf && r->isLeaf) {
+		leaves_.erase(l);
+		leaves_.erase(r);
+		leafByLabel_.erase(l->label);
+		leafByLabel_.erase(r->label);
 
-	leaves_.erase(node->left);
-	leaves_.erase(node->right);
-	leafByLabel_.erase(node->left->label);
-	leafByLabel_.erase(node->right->label);
+		mergeCherry(node);
 
-	mergeCherry(node);
-
-	leaves_.insert(node);
-	leafByLabel_[node->label] = node;
+		leaves_.insert(node);
+		leafByLabel_[node->label] = node;
+	}
 }
+
+void Forest::expandMergedSubtrees() {
+	for (const auto leaf: leaves_) {
+		if (leaf->isMerged) {
+			expandRecursive(leaf);
+		}
+	}
+}
+
+void Forest::expandRecursive(std::shared_ptr<TreeNode> node) {
+		leaves_.erase(node);
+		leafByLabel_.erase(node->label);
+
+		node->isMerged = false;
+		node->isLeaf = false;
+
+		auto l = node->left;
+		auto r = node->right;
+
+		if (!l->isMerged) {
+			leaves_.insert(l);
+			leafByLabel_[l->label] = l;
+		} else {
+			expandRecursive(l);
+		}
+		if (!r->isMerged) {
+			leaves_.insert(r);
+			leafByLabel_[r->label] = r;
+		} else {
+			expandRecursive(r);
+		}
+	}
 
 void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	//TODO: Is this really how you assign shared pointers?
@@ -48,22 +84,57 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	} else {
 		std::cout << "The given node does not have that child" << std::endl;
 	}
+	contract(parent);
 }
 
-void Forest::detachByLabel(int label) {
-	detachChild(getLeafByLabel(label));
+void Forest::detachByLabel(std::string label) {
+	auto leaf = getLeafByLabel(label);
+	auto parent = leaf->parent;
+	detachChild(leaf);
+}
+
+/**
+    * Contracts the edge between v and its only child, if it has one.
+    *
+    * If v is a root node, then the child becomes the new root.
+    * If v is an internal node, then the child takes the place of v in the tree.
+    * This should run in O(1) time, as it only involves a constant number of pointer updates.
+    *
+    * Does nothing if v has 0 or 2 children, as it is not possible to contract in those cases.
+    */
+void Forest::contract(std::shared_ptr<TreeNode> v) {
+    bool hasLeftChild = v->left != nullptr;
+    bool hasRightChild = v->right.get() != nullptr;
+    if (hasLeftChild && hasRightChild) return; // Both children are present; can't contract
+    if (v->isLeaf) return; // can't contract leaf nodes
+
+    auto child = hasLeftChild ? v->left : v->right; // The only child of v
+
+    if (v->parent != nullptr) { // v is not root node
+        bool isRightChild = v->parent->right.get() == v.get();
+        if (isRightChild) {
+            v->parent->right = std::move(child);
+        } else {
+            v->parent->left = std::move(child);
+        }
+
+    } else { // v is root node
+        child->parent = nullptr;
+        removeRoot(v);
+        addRoot(child);
+    }
 }
 
 std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
 	if (!node) return "";
-	if (node->isLeaf) return node->newickRep;
+	if (node->isLeaf) return node->label;
 
 	std::string result = "(";
 	if (node->left)  result += treeToNewick(node->left);
 	if (node->left && node->right) result += ",";
 	if (node->right) result += treeToNewick(node->right);
 	result += ")";
-	if (node->label != 0) result += std::to_string(node->label);
+	if (node->label != "0") result += node->label;
 	return result;
 }
 
@@ -182,7 +253,7 @@ std::unordered_set<std::shared_ptr<TreeNode>> Forest::getRoots() {
 std::unordered_set<std::shared_ptr<TreeNode>> Forest::getLeaves() {
 	return leaves_;
 }
-std::shared_ptr<TreeNode> Forest::getLeafByLabel(int label) {
+std::shared_ptr<TreeNode> Forest::getLeafByLabel(std::string label) {
 	return leafByLabel_[label];
 }
 
@@ -250,6 +321,6 @@ void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
 void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) {
 	leaves_ = newLeaves;
 }
-void Forest::setLeavesByLabel(std::unordered_map<int, std::shared_ptr<TreeNode>> newLeavesByLabel) {
+void Forest::setLeavesByLabel(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeavesByLabel) {
 	leafByLabel_ = newLeavesByLabel;
 }

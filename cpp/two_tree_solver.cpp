@@ -26,44 +26,9 @@ void TwoTreeSolver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std
     std::unordered_set<std::shared_ptr<TreeNode>> newRoots;
     for (const auto& root : mainForest->getRoots()) {
         if (root->isLeaf) {
-            mainForest->removeRoot(root);
-            mainForest->removeLeaf(root);
-            otherForest->removeRoot(root);
-            otherForest->removeLeaf(root);
-            continue; // Skip singleton leaf roots
+            otherForest->detachByLabel(root->label);
+            continue;
         }
-    }
-}
-
-/**
-    * Contracts the edge between v and its only child, if it has one.
-    *
-    * If v is a root node, then the child becomes the new root.
-    * If v is an internal node, then the child takes the place of v in the tree.
-    * This should run in O(1) time, as it only involves a constant number of pointer updates.
-    *
-    * Does nothing if v has 0 or 2 children, as it is not possible to contract in those cases.
-    */
-void TwoTreeSolver::contract(std::shared_ptr<TreeNode> v, std::shared_ptr<Forest> forest) {
-    bool hasLeftChild = v->left != nullptr;
-    bool hasRightChild = v->right.get() != nullptr;
-    if (hasLeftChild && hasRightChild) return; // Both children are present; can't contract
-    if (v->isLeaf) return; // can't contract leaf nodes
-
-    auto child = hasLeftChild ? v->left : v->right; // The only child of v
-
-    if (v->parent != nullptr) { // v is not root node
-        bool isRightChild = v->parent->right.get() == v.get();
-        if (isRightChild) {
-            v->parent->right = std::move(child);
-        } else {
-            v->parent->left = std::move(child);
-        }
-
-    } else { // v is root node
-        child->parent = nullptr;
-        forest->removeRoot(v);
-        forest->addRoot(child);
     }
 }
 
@@ -181,6 +146,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
     auto [idx, siblingPair] = f2->getOneSiblingPair();
     if (idx == -1) {
         fs.erase(fs.begin() + 1);
+        f1->expandMergedSubtrees();
         return solve(k, fs);
     }
     // Step 5

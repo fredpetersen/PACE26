@@ -13,12 +13,18 @@ int main() {
 
     auto problemInstance = parseInput();
 
+    std::cout << "Problem Parsed" << std::endl;
+    
     TwoTreeSolver solver(problemInstance.forests[0], problemInstance.forests[1], problemInstance.leafCount);
     // TwoTreeTestSolver solver(problemInstance.forests[0], problemInstance.forests[1], problemInstance.leafCount);
+
+    std::cout << "Solver Created" << std::endl;
 
     auto result = solver.solve();
     // int result = solver.test();
     
+    std::cout << "Solution Found" << std::endl;
+
     problemInstance.forests[0]->printForestNewick();
     return 0;
 }
