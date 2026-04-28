@@ -6,14 +6,16 @@
 Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be considered different pairs
 */
 size_t SiblingPairHash::operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept {
-        auto a = stoi(p.first->label);
-        auto b = stoi(p.second->label);
+        auto a = p.first->label;
+        auto b = p.second->label;
         if (a > b) {
             auto c = a;
             a = b;
             b = c;
         }
-        return ((a + b)*(a + b + 1))/2 + b;
+		std::hash<std::string> hasher;
+		auto str = "(" + a + "," + b + ")";
+        return hasher(str);
     }
 
 //TODO: Check string equality actually works
@@ -40,19 +42,24 @@ void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node) {
 }
 
 void Forest::expandMergedSubtrees() {
-	for (const auto leaf: leaves_) {
+	// You have to make this copy, since you can't iterate through a list while editing the same list
+	auto leavesCopy = leaves_;
+	for (const auto leaf: leavesCopy) {
 		if (leaf->isMerged) {
 			expandRecursive(leaf);
 		}
 	}
 }
 
+
 void Forest::expandRecursive(std::shared_ptr<TreeNode> node) {
+	if (node->isMerged) {
 		leaves_.erase(node);
 		leafByLabel_.erase(node->label);
 
 		node->isMerged = false;
 		node->isLeaf = false;
+		node->label = "0";
 
 		auto l = node->left;
 		auto r = node->right;
@@ -70,22 +77,27 @@ void Forest::expandRecursive(std::shared_ptr<TreeNode> node) {
 			expandRecursive(r);
 		}
 	}
+}
 
 void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	//TODO: Is this really how you assign shared pointers?
 	auto parent = child->parent;
-	roots_.insert(child);
-	if (parent->left == child) {
-		child->parent = nullptr;
-		parent->left = nullptr;
-	} else if (parent->right == child) {
-		child->parent = nullptr;
-		parent->right = nullptr;
-	} else {
-		std::cout << "The given node does not have that child" << std::endl;
+	if (parent != nullptr) {
+		roots_.insert(child);
+		if (parent->left == child) {
+			child->parent = nullptr;
+			parent->left = nullptr;
+		} else if (parent->right == child) {
+			child->parent = nullptr;
+			parent->right = nullptr;
+		}
+		// else { // Wildcard TODO: investigate why this is being reached
+		// 	std::cout << "The given node does not have that child" << std::endl;
+		// }
+		roots_.insert(child);
+		componentCount_++;
+		contract(parent);
 	}
-	roots_.insert(child);
-	contract(parent);
 }
 
 void Forest::detachByLabel(std::string label) {
@@ -240,6 +252,7 @@ std::shared_ptr<TreeNode> Forest::cloneTree(
         auto clone = std::make_shared<TreeNode>();
         clone->isLeaf = node->isLeaf;
         clone->label = node->label;
+		clone->isMerged = node->isMerged;
 
         if (node->left != nullptr) {
             clone->left = cloneTree(node->left);
@@ -399,15 +412,14 @@ std::pair<int, std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>> 
 				auto leaf = *it;
 				if (leaf->parent != nullptr) {
 						auto parent = leaf->parent;
-						if (parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
-								return {currentIndex, {parent->left, parent->right}};
+						if (!parent->isMerged && parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
+							return {currentIndex, {parent->left, parent->right}};
 						}
 				}
 				currentIndex++;
 		}
 		return {-1, {nullptr, nullptr}}; // No sibling pairs found
 }
-
 void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
 	roots_ = newRoots;
 }

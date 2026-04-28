@@ -17,8 +17,10 @@
 #include <forest.h>
 
 void TwoTreeSolver::printForests() const {
-    forest1_->print("Forest 1");
-    forest2_->print("Forest 2");
+    // TODO: Rework this to work actually good
+    // forest1_->print("Forest 1");
+    // forest2_->print("Forest 2");
+    std::cout << "not implemented, printForests()" << std::endl;
 }
 
 
@@ -41,10 +43,9 @@ std::vector<std::shared_ptr<Forest>> TwoTreeSolver::cloneForests(std::vector<std
 }
 
 std::shared_ptr<Forest> TwoTreeSolver::solve() {
-    std::cout << "Solving..." << std::endl;
     bool isSolved = false;
     std::shared_ptr<Forest> solution;
-    int k = 0;
+    int k = 1;
     // No reason to add a looping condition on k, theres is always a trivial solution with k = nr. of leaves
     while (!isSolved) {
 
@@ -56,44 +57,57 @@ std::shared_ptr<Forest> TwoTreeSolver::solve() {
 }
 
 std::pair<bool, std::shared_ptr<Forest>> TwoTreeSolver::solve(int k) {
-    std::cout << "Looking for solution size " << k << std::endl;
     std::vector<std::shared_ptr<Forest>> forests = {forest1_, forest2_};
     auto res = solve(k, forests);
     return {res.first, res.second[0]};
 }
 
 std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k, std::vector<std::shared_ptr<Forest>> forests) {
-    // Forests should never be empty
+
+    std::pair<bool, std::vector<std::shared_ptr<Forest>>> sol;
+
     auto fs = cloneForests(forests);
     auto f1 = fs[0];
-    auto f2 = fs[1];
+
+
+    // technically a MAF on 0 forests is true...
     if (fs.size() < 1) {
-        throw 1;
+        return {true, {nullptr}};
     }
+
     // Step 1 (if there's only 1 forest left, this forest is the MAF)
     if (fs.size() == 1) {
         return {true, fs};
     }
+
+    auto f2 = fs[1];
+
     // Step 2 (if there are more components on the MAF we're building than k, the solution is too big (i.e. invalid))
     if (f1->getComponentCount() > k) {
         return {false, {nullptr}};
     }
+
     // Step 3 (clean the single vertex trees)
     cleanSingletonLeaves(f1, f2);
     cleanSingletonLeaves(f2, f1);
+
     // Step 4 (try to get a sibling pair in F2. If it can't be done, move on to solving F3)
     auto [idx, siblingPair] = f2->getOneSiblingPair();
     if (idx == -1) {
         fs.erase(fs.begin() + 1);
         f1->expandMergedSubtrees(); // Undoes the local merge (necessary to step through the algorithm)
-        return solve(k, fs);
+        sol = solve(k, fs);
+        if (sol.first) {
+            return sol;
+        }
     }
+
     // Step 5
     // labels of the nodes
     auto lab_u = siblingPair.first->label;
     auto lab_v = siblingPair.second->label;
-
     auto [ancestor, dist] = f1->lca(lab_u, lab_v);
+
     // Step 6 (when u and v are in different components in F1, branch on cutting either u or v)
     if (dist == -1) {
         // clone the forests to run 1 version on each branch
@@ -104,18 +118,29 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
         // remember, f1 and f2 (from fs) is already a clone of the argument passed in
         f1->detachByLabel(lab_u);
         f2->detachByLabel(lab_u);
-        return solve(k, fs);
+        sol = solve(k, fs);
+        if (sol.first) {
+            return sol;
+        }
 
         fc1->detachByLabel(lab_v);
         fc2->detachByLabel(lab_v);
-        return solve(k, fsClone);
+        sol = solve(k, fsClone);
+        if (sol.first) {
+            return sol;
+        }
     }
+
     // Step 7 (when u and v are siblings in F1, do a local merge of u and v in both F1 and F2)
     else if (dist == 1) {
-        // TODO: merge cherries in forests
-        f1->forestMergeCherry(f1->getLeafByLabel(lab_u));
-        f2->forestMergeCherry(f2->getLeafByLabel(lab_u));
+        f1->forestMergeCherry(f1->getLeafByLabel(lab_u)->parent);
+        f2->forestMergeCherry(f2->getLeafByLabel(lab_u)->parent);
+        sol = solve(k, fs);
+        if (sol.first) {
+            return sol;
+        }
     }
+
     // Step 8 (when the distance between u and v in F1 is >= 2) // TODO: maybe case 2 (ie dist = 2) isnt a special case when there are n trees?
     else if (dist > 1){
         auto fsClone1 = cloneForests(fs);
@@ -128,21 +153,28 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
         // branch 1, cut u from F1 and F2
         f1->detachByLabel(lab_u);
         f2->detachByLabel(lab_u);
-        solve(k, fs);
+        sol = solve(k, fs);
+        if (sol.first) {
+            return sol;
+        }
 
         // branch 2, cut v from F1 and F2
         f1c1->detachByLabel(lab_v);
         f2c1->detachByLabel(lab_v);
-        solve(k, fsClone1);
+        sol = solve(k, fsClone1);
+        if (sol.first) {
+            return sol;
+        }
 
         // branch 3, cut all pendant subtrees between u and v from F1 only
         auto newRoots = f1c2->collectPendantSubtreesBetweenLeaves(lab_u, lab_v, ancestor);
         for (const auto & r : newRoots) {
             f1c2->detachChild(r);
         }
-        solve(k, fsClone2);
+        sol = solve(k, fsClone2);
+        if (sol.first) {
+            return sol;
+        }
     }
-    // wildcard, you should on paper never reach this case
-    std::cout << "You've reached the Wildcard!!!! You should not be able to reach here" << std::endl;
     return {false, {nullptr}};
 }
