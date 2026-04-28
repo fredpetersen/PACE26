@@ -40,6 +40,9 @@ class Forest {
 		void contract(std::shared_ptr<TreeNode> v);
 		
 		std::pair<std::shared_ptr<TreeNode>, int> lca(std::string label_u, std::string label_v);
+		std::vector<std::shared_ptr<TreeNode>> collectPendantSubtreesBetweenLeaves(std::string leftLeaf,
+                                                    std::string rightLeaf,
+                                                    std::shared_ptr<TreeNode>& lcaNode);
 
 		std::string treeToNewick(const std::shared_ptr<TreeNode>& node);
 		void printForestNewick();

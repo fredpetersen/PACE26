@@ -84,12 +84,12 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	} else {
 		std::cout << "The given node does not have that child" << std::endl;
 	}
+	roots_.insert(child);
 	contract(parent);
 }
 
 void Forest::detachByLabel(std::string label) {
 	auto leaf = getLeafByLabel(label);
-	auto parent = leaf->parent;
 	detachChild(leaf);
 }
 
@@ -188,6 +188,35 @@ std::pair<std::shared_ptr<TreeNode>, int> Forest::lca(std::string label_u, std::
         return {nullptr, -1};
     }
 }
+
+std::vector<std::shared_ptr<TreeNode>> Forest::collectPendantSubtreesBetweenLeaves(std::string u_label,
+                                                    std::string v_label,
+                                                    std::shared_ptr<TreeNode>& lcaNode) {
+        std::vector<std::shared_ptr<TreeNode>> pendantSubtrees;
+		auto u = leafByLabel_[u_label];
+		auto v = leafByLabel_[v_label];
+
+        if (u == nullptr || v == nullptr || lcaNode == nullptr) {
+            return pendantSubtrees;
+        }
+
+        std::unordered_set<TreeNode*> seen;
+        auto collectFromLeaf = [&](std::shared_ptr<TreeNode> leaf) {
+            auto current = leaf;
+            while (current != nullptr && current->parent != nullptr && current->parent != lcaNode) {
+                auto parent = current->parent;
+                auto sibling = (parent->left == current) ? parent->right : parent->left;
+                if (sibling != nullptr && seen.insert(sibling.get()).second) {
+                    pendantSubtrees.push_back(sibling);
+                }
+                current = parent;
+            }
+        };
+
+        collectFromLeaf(u);
+        collectFromLeaf(v);
+        return pendantSubtrees;
+    };
 
 std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
 	if (!node) return "";

@@ -39,8 +39,6 @@ public:
 
     std::vector<std::shared_ptr<Forest>> cloneForests(std::vector<std::shared_ptr<Forest>> forests);
 
-    std::pair<std::shared_ptr<TreeNode>, int> lca(std::shared_ptr<TreeNode> u, std::shared_ptr<TreeNode> v);
-
     std::shared_ptr<Forest> solve();
     std::pair<bool, std::shared_ptr<Forest>> solve(int k);
     std::pair<bool, std::vector<std::shared_ptr<Forest>>> solve(int k, std::vector<std::shared_ptr<Forest>> forests);
