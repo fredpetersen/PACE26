@@ -17,9 +17,5 @@ class TwoTreeTestSolver : public TwoTreeSolver {
 
 		int testGetSiblingsPairs();
 
-		int testCantorPair();
-
-		int testInitCantorMerging();
-
 		int test();
 };

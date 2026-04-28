@@ -13,9 +13,12 @@ size_t SiblingPairHash::operator()(const std::pair<std::shared_ptr<TreeNode>, st
             a = b;
             b = c;
         }
-        return ((a + b)*(a + b + 1))/2 + b;
+		std::hash<std::string> hasher;
+		auto str = "(" + a + "," + b + ")";
+        return hasher(str);
     }
 
+//TODO: Check string equality actually works
 bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
                     const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept {
         return (a.first == b.first && a.second == b.second) || (a.first == b.second && a.second == b.first);
@@ -23,46 +26,220 @@ bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::s
 
 
 void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node) {
+	auto l = node->left;
+	auto r = node->right;
+    if (l->isLeaf && r->isLeaf) {
+		leaves_.erase(l);
+		leaves_.erase(r);
+		leafByLabel_.erase(l->label);
+		leafByLabel_.erase(r->label);
 
-	leaves_.erase(node->left);
-	leaves_.erase(node->right);
-	leafByLabel_.erase(node->left->label);
-	leafByLabel_.erase(node->right->label);
-	nodeByCantor_.erase(node->left->hash);
-	nodeByCantor_.erase(node->right->hash);
+		mergeCherry(node);
 
-	mergeCherry(node);
+		leaves_.insert(node);
+		leafByLabel_[node->label] = node;
+	}
+}
 
-	leaves_.insert(node);
-	leafByLabel_[node->label] = node;
-	nodeByCantor_[node->hash] = node;
+void Forest::expandMergedSubtrees() {
+	// You have to make this copy, since you can't iterate through a list while editing the same list
+	auto leavesCopy = leaves_;
+	for (const auto leaf: leavesCopy) {
+		if (leaf->isMerged) {
+			expandRecursive(leaf);
+		}
+	}
+}
+
+
+void Forest::expandRecursive(std::shared_ptr<TreeNode> node) {
+	if (node->isMerged) {
+		leaves_.erase(node);
+		leafByLabel_.erase(node->label);
+
+		node->isMerged = false;
+		node->isLeaf = false;
+		node->label = "0";
+
+		auto l = node->left;
+		auto r = node->right;
+
+		if (!l->isMerged) {
+			leaves_.insert(l);
+			leafByLabel_[l->label] = l;
+		} else {
+			expandRecursive(l);
+		}
+		if (!r->isMerged) {
+			leaves_.insert(r);
+			leafByLabel_[r->label] = r;
+		} else {
+			expandRecursive(r);
+		}
+	}
 }
 
 void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 	//TODO: Is this really how you assign shared pointers?
 	auto parent = child->parent;
-	roots_.insert(child);
-	if (parent->left == child) {
-		child->parent = nullptr;
-		parent->left = nullptr;
-	} else if (parent->right == child) {
-		child->parent = nullptr;
-		parent->right = nullptr;
-	} else {
-		std::cout << "The given node does not have that child" << std::endl;
+	if (parent != nullptr) {
+		roots_.insert(child);
+		if (parent->left == child) {
+			child->parent = nullptr;
+			parent->left = nullptr;
+		} else if (parent->right == child) {
+			child->parent = nullptr;
+			parent->right = nullptr;
+		}
+		// else { // Wildcard TODO: investigate why this is being reached
+		// 	std::cout << "The given node does not have that child" << std::endl;
+		// }
+		roots_.insert(child);
+		componentCount_++;
+		contract(parent);
 	}
 }
 
+void Forest::detachByLabel(std::string label) {
+	auto leaf = getLeafByLabel(label);
+	detachChild(leaf);
+}
+
+/**
+    * Contracts the edge between v and its only child, if it has one.
+    *
+    * If v is a root node, then the child becomes the new root.
+    * If v is an internal node, then the child takes the place of v in the tree.
+    * This should run in O(1) time, as it only involves a constant number of pointer updates.
+    *
+    * Does nothing if v has 0 or 2 children, as it is not possible to contract in those cases.
+    */
+void Forest::contract(std::shared_ptr<TreeNode> v) {
+    bool hasLeftChild = v->left != nullptr;
+    bool hasRightChild = v->right.get() != nullptr;
+    if (hasLeftChild && hasRightChild) return; // Both children are present; can't contract
+    if (v->isLeaf) return; // can't contract leaf nodes
+
+    auto child = hasLeftChild ? v->left : v->right; // The only child of v
+
+    if (v->parent != nullptr) { // v is not root node
+        bool isRightChild = v->parent->right.get() == v.get();
+        if (isRightChild) {
+            v->parent->right = std::move(child);
+        } else {
+            v->parent->left = std::move(child);
+        }
+
+    } else { // v is root node
+        child->parent = nullptr;
+        removeRoot(v);
+        addRoot(child);
+    }
+}
+
+/**
+    Finds the lowest shared ancestor between TreeNodes u and v, and writes the pointer to the shared ancestor to the res address,
+    as well as the distance to the dist address.
+
+    This algorithm works by working up from v and u and placing each parent in a set (until the root), once a parent is attempted to
+    be entered into the set, but that parent is already in the set, then you know you have found the lowest common ancestor. If both
+    vertices climb all the way up to root and there is still no intersection, then they are in different components.
+
+    This should run in O(log n) for balanced trees, as worst case both vertices have to climb up to the root of the tree.
+
+    This function returns {ancestor, distance}, where distance == -1 if u and v are in different trees.
+*/
+std::pair<std::shared_ptr<TreeNode>, int> Forest::lca(std::string label_u, std::string label_v) {
+    auto u = leafByLabel_[label_u];
+    auto v = leafByLabel_[label_v];
+	
+	if(label_u == label_v) {
+        return {u, 0};
+    }
+
+    // Takes into account if u is a parent of v
+    std::unordered_set<std::shared_ptr<TreeNode>> parentSet{u};
+
+    auto uTmp = u;
+    auto vTmp = v;
+
+    // u->parent == nullptr means that u->parent is the root node
+    while (uTmp->parent != nullptr) {
+        parentSet.insert(uTmp->parent);
+        uTmp = uTmp->parent;
+    }
+
+    int dist = 0;
+    std::shared_ptr<TreeNode> lca = nullptr;
+
+    // Takes into account if V is an ancestor of U
+    if (parentSet.count(v) > 0) {
+        lca = v;
+    } else {
+        while (vTmp->parent != nullptr) {
+            dist++;
+            if (parentSet.count(vTmp->parent) > 0) {
+                lca = vTmp->parent;
+                break;
+            }
+            vTmp = vTmp->parent;
+        }
+    }
+
+    if (lca == u) {
+        return {lca, dist};
+    } else if (lca != nullptr) {
+        uTmp = u;
+        // Calculates the distance from u to the lca to get the final distance (or root)
+        while (uTmp->parent != lca) {
+            dist++;
+            uTmp = uTmp->parent;
+        }
+        return {lca, dist};
+    } else {
+        return {nullptr, -1};
+    }
+}
+
+std::vector<std::shared_ptr<TreeNode>> Forest::collectPendantSubtreesBetweenLeaves(std::string u_label,
+                                                    std::string v_label,
+                                                    std::shared_ptr<TreeNode>& lcaNode) {
+        std::vector<std::shared_ptr<TreeNode>> pendantSubtrees;
+		auto u = leafByLabel_[u_label];
+		auto v = leafByLabel_[v_label];
+
+        if (u == nullptr || v == nullptr || lcaNode == nullptr) {
+            return pendantSubtrees;
+        }
+
+        std::unordered_set<TreeNode*> seen;
+        auto collectFromLeaf = [&](std::shared_ptr<TreeNode> leaf) {
+            auto current = leaf;
+            while (current != nullptr && current->parent != nullptr && current->parent != lcaNode) {
+                auto parent = current->parent;
+                auto sibling = (parent->left == current) ? parent->right : parent->left;
+                if (sibling != nullptr && seen.insert(sibling.get()).second) {
+                    pendantSubtrees.push_back(sibling);
+                }
+                current = parent;
+            }
+        };
+
+        collectFromLeaf(u);
+        collectFromLeaf(v);
+        return pendantSubtrees;
+    };
+
 std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
 	if (!node) return "";
-	if (node->isLeaf) return node->newickRep;
+	if (node->isLeaf) return node->label;
 
 	std::string result = "(";
 	if (node->left)  result += treeToNewick(node->left);
 	if (node->left && node->right) result += ",";
 	if (node->right) result += treeToNewick(node->right);
 	result += ")";
-	if (node->label != 0) result += std::to_string(node->label);
+	if (node->label != "0") result += node->label;
 	return result;
 }
 
@@ -75,7 +252,7 @@ std::shared_ptr<TreeNode> Forest::cloneTree(
         auto clone = std::make_shared<TreeNode>();
         clone->isLeaf = node->isLeaf;
         clone->label = node->label;
-        clone->hash = node->hash;
+		clone->isMerged = node->isMerged;
 
         if (node->left != nullptr) {
             clone->left = cloneTree(node->left);
@@ -182,14 +359,9 @@ std::unordered_set<std::shared_ptr<TreeNode>> Forest::getRoots() {
 std::unordered_set<std::shared_ptr<TreeNode>> Forest::getLeaves() {
 	return leaves_;
 }
-std::shared_ptr<TreeNode> Forest::getLeafByLabel(int label) {
+std::shared_ptr<TreeNode> Forest::getLeafByLabel(std::string label) {
 	return leafByLabel_[label];
 }
-
-std::shared_ptr<TreeNode> Forest::getNodeByCantor(int cantor) {
-	return nodeByCantor_[cantor];
-}
-
 
 /**
     * Returns a set of all sibling leaf pairs in the forest.
@@ -240,25 +412,20 @@ std::pair<int, std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>> 
 				auto leaf = *it;
 				if (leaf->parent != nullptr) {
 						auto parent = leaf->parent;
-						if (parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
-								return {currentIndex, {parent->left, parent->right}};
+						if (!parent->isMerged && parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
+							return {currentIndex, {parent->left, parent->right}};
 						}
 				}
 				currentIndex++;
 		}
 		return {-1, {nullptr, nullptr}}; // No sibling pairs found
 }
-
 void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
 	roots_ = newRoots;
 }
 void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) {
 	leaves_ = newLeaves;
 }
-void Forest::setLeavesByLabel(std::unordered_map<int, std::shared_ptr<TreeNode>> newLeavesByLabel) {
+void Forest::setLeavesByLabel(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeavesByLabel) {
 	leafByLabel_ = newLeavesByLabel;
-}
-
-void Forest::setNodesByCantor(std::unordered_map<int, std::shared_ptr<TreeNode>> newNodesByCantor) {
-	nodeByCantor_ = newNodesByCantor;
 }
