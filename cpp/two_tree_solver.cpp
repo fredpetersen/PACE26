@@ -117,7 +117,7 @@ std::shared_ptr<Forest> TwoTreeSolver::solve() {
 }
 
 std::pair<bool, std::shared_ptr<Forest>> TwoTreeSolver::solve(int k) {
-    std::cout << k << std::endl;
+    std::cout << "Looking for solution size " << k << std::endl;
     std::vector<std::shared_ptr<Forest>> forests = {forest1_, forest2_};
     auto res = solve(k, forests);
     return {res.first, res.second[0]};
@@ -131,22 +131,22 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
     if (fs.size() < 1) {
         throw 1;
     }
-    // Step 1
+    // Step 1 (if there's only 1 forest left, this forest is the MAF)
     if (fs.size() == 1) {
         return {true, fs};
     }
-    // Step 2
+    // Step 2 (if there are more components on the MAF we're building than k, the solution is too big (i.e. invalid))
     if (f1->getComponentCount() > k) {
         return {false, {nullptr}};
     }
-    // Step 3
+    // Step 3 (clean the single vertex trees)
     cleanSingletonLeaves(f1, f2);
     cleanSingletonLeaves(f2, f1);
-    // Step 4
+    // Step 4 (try to get a sibling pair in F2. If it can't be done, move on to solving F3)
     auto [idx, siblingPair] = f2->getOneSiblingPair();
     if (idx == -1) {
         fs.erase(fs.begin() + 1);
-        f1->expandMergedSubtrees();
+        f1->expandMergedSubtrees(); // Undoes the local merge (necessary to step through the algorithm)
         return solve(k, fs);
     }
     // Step 5
@@ -155,37 +155,56 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
     auto lab_v = siblingPair.second->label;
 
     auto [ancestor, dist] = lca(f1->getLeafByLabel(lab_u), f1->getLeafByLabel(lab_v));
-    // Step 6
+    // Step 6 (when u and v are in different components in F1, branch on cutting either u or v)
     if (dist == -1) {
         // clone the forests to run 1 version on each branch
         auto fsClone = cloneForests(fs);
         auto fc1 = fsClone[0];
         auto fc2 = fsClone[1];
 
+        // remember, f1 and f2 (from fs) is already a clone of the argument passed in
         f1->detachByLabel(lab_u);
         f2->detachByLabel(lab_u);
-        
-        // left corresponds to the branch where vertex u is cut from both trees
-        auto [leftIsSolved, leftSolution] = solve(k, fs);
-        if (leftIsSolved) {
-            return {leftIsSolved, leftSolution};
-        // Only do the cloning/searching if the left didn't find a solution. Practical optimization
-        } else {
-            fc1->detachByLabel(lab_v);
-            fc2->detachByLabel(lab_v);
-            return solve(k, fsClone);
-        }
+        return solve(k, fs);
+
+        fc1->detachByLabel(lab_v);
+        fc2->detachByLabel(lab_v);
+        return solve(k, fsClone);
     }
-    // Step 7
+    // Step 7 (when u and v are siblings in F1, do a local merge of u and v in both F1 and F2)
     else if (dist == 1) {
         // TODO: merge cherries in forests
+        f1->forestMergeCherry(f1->getLeafByLabel(lab_u));
+        f2->forestMergeCherry(f2->getLeafByLabel(lab_u));
     }
-    // Step 8
-    else {
+    // Step 8 (when the distance between u and v in F1 is >= 2) // TODO: maybe case 2 (ie dist = 2) isnt a special case when there are n trees?
+    else if (dist > 1){
+        auto fsClone1 = cloneForests(fs);
+        auto f1c1 = fsClone1[0];
+        auto f2c1 = fsClone1[1];
+
+        auto fsClone2 = cloneForests(fs);
+        auto f1c2 = fsClone2[0];
+        auto f2c2 = fsClone2[1];
+
+        // branch 1, cut u from F1 and F2
+        f1->detachByLabel(lab_u);
+        f2->detachByLabel(lab_u);
+        solve(k, fs);
+
+        // branch 2, cut v from F1 and F2
+        f1c1->detachByLabel(lab_v);
+        f2c1->detachByLabel(lab_v);
+        solve(k, fsClone1);
+
+        // branch 3, cut all pendant subtrees between u and v from F1 only
         
     }
+    // wildcard
+    else {
+        std::cout << "distance between u and v, " << dist << " not valid" << std::endl;
+    }
     // Placeholder return to make compiler happy
-    return solve(k, fs);;
 }
 // std::pair<bool, std::shared_ptr<TreeNode>> TwoTreeSolver::solve(int k, std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2) {
 //     forest1->print("Forest 1, k=" + std::to_string(k) + ":");
