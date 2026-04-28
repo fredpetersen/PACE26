@@ -125,6 +125,70 @@ void Forest::contract(std::shared_ptr<TreeNode> v) {
     }
 }
 
+/**
+    Finds the lowest shared ancestor between TreeNodes u and v, and writes the pointer to the shared ancestor to the res address,
+    as well as the distance to the dist address.
+
+    This algorithm works by working up from v and u and placing each parent in a set (until the root), once a parent is attempted to
+    be entered into the set, but that parent is already in the set, then you know you have found the lowest common ancestor. If both
+    vertices climb all the way up to root and there is still no intersection, then they are in different components.
+
+    This should run in O(log n) for balanced trees, as worst case both vertices have to climb up to the root of the tree.
+
+    This function returns {ancestor, distance}, where distance == -1 if u and v are in different trees.
+*/
+std::pair<std::shared_ptr<TreeNode>, int> Forest::lca(std::string label_u, std::string label_v) {
+    auto u = leafByLabel_[label_u];
+    auto v = leafByLabel_[label_v];
+	
+	if(label_u == label_v) {
+        return {u, 0};
+    }
+
+    // Takes into account if u is a parent of v
+    std::unordered_set<std::shared_ptr<TreeNode>> parentSet{u};
+
+    auto uTmp = u;
+    auto vTmp = v;
+
+    // u->parent == nullptr means that u->parent is the root node
+    while (uTmp->parent != nullptr) {
+        parentSet.insert(uTmp->parent);
+        uTmp = uTmp->parent;
+    }
+
+    int dist = 0;
+    std::shared_ptr<TreeNode> lca = nullptr;
+
+    // Takes into account if V is an ancestor of U
+    if (parentSet.count(v) > 0) {
+        lca = v;
+    } else {
+        while (vTmp->parent != nullptr) {
+            dist++;
+            if (parentSet.count(vTmp->parent) > 0) {
+                lca = vTmp->parent;
+                break;
+            }
+            vTmp = vTmp->parent;
+        }
+    }
+
+    if (lca == u) {
+        return {lca, dist};
+    } else if (lca != nullptr) {
+        uTmp = u;
+        // Calculates the distance from u to the lca to get the final distance (or root)
+        while (uTmp->parent != lca) {
+            dist++;
+            uTmp = uTmp->parent;
+        }
+        return {lca, dist};
+    } else {
+        return {nullptr, -1};
+    }
+}
+
 std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
 	if (!node) return "";
 	if (node->isLeaf) return node->label;

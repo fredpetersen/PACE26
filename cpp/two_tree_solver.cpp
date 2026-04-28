@@ -40,67 +40,6 @@ std::vector<std::shared_ptr<Forest>> TwoTreeSolver::cloneForests(std::vector<std
     return forestClones;
 }
 
-/**
-    Finds the lowest shared ancestor between TreeNodes u and v, and writes the pointer to the shared ancestor to the res address,
-    as well as the distance to the dist address.
-
-    This algorithm works by working up from v and u and placing each parent in a set (until the root), once a parent is attempted to
-    be entered into the set, but that parent is already in the set, then you know you have found the lowest common ancestor. If both
-    vertices climb all the way up to root and there is still no intersection, then they are in different components.
-
-    This should run in O(log n) for balanced trees, as worst case both vertices have to climb up to the root of the tree.
-
-    This function returns {ancestor, distance}, where distance == -1 if u and v are in different trees.
-*/
-std::pair<std::shared_ptr<TreeNode>, int> TwoTreeSolver::lca(std::shared_ptr<TreeNode> u, std::shared_ptr<TreeNode> v) {
-    if(u == v) {
-        return {u, 0};
-    }
-
-    // Takes into account if u is a parent of v
-    std::unordered_set<std::shared_ptr<TreeNode>> parentSet{u};
-
-    auto uTmp = u;
-    auto vTmp = v;
-
-    // u->parent == nullptr means that u->parent is the root node
-    while (uTmp->parent != nullptr) {
-        parentSet.insert(uTmp->parent);
-        uTmp = uTmp->parent;
-    }
-
-    int dist = 0;
-    std::shared_ptr<TreeNode> lca = nullptr;
-
-    // Takes into account if V is an ancestor of U
-    if (parentSet.count(v) > 0) {
-        lca = v;
-    } else {
-        while (vTmp->parent != nullptr) {
-            dist++;
-            if (parentSet.count(vTmp->parent) > 0) {
-                lca = vTmp->parent;
-                break;
-            }
-            vTmp = vTmp->parent;
-        }
-    }
-
-    if (lca == u) {
-        return {lca, dist};
-    } else if (lca != nullptr) {
-        uTmp = u;
-        // Calculates the distance from u to the lca to get the final distance (or root)
-        while (uTmp->parent != lca) {
-            dist++;
-            uTmp = uTmp->parent;
-        }
-        return {lca, dist};
-    } else {
-        return {nullptr, -1};
-    }
-}
-
 std::shared_ptr<Forest> TwoTreeSolver::solve() {
     std::cout << "Solving..." << std::endl;
     bool isSolved = false;
@@ -154,7 +93,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
     auto lab_u = siblingPair.first->label;
     auto lab_v = siblingPair.second->label;
 
-    auto [ancestor, dist] = lca(f1->getLeafByLabel(lab_u), f1->getLeafByLabel(lab_v));
+    auto [ancestor, dist] = f1->lca(lab_u, lab_v);
     // Step 6 (when u and v are in different components in F1, branch on cutting either u or v)
     if (dist == -1) {
         // clone the forests to run 1 version on each branch
@@ -200,11 +139,9 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
         // branch 3, cut all pendant subtrees between u and v from F1 only
         
     }
-    // wildcard
-    else {
-        std::cout << "distance between u and v, " << dist << " not valid" << std::endl;
-    }
-    // Placeholder return to make compiler happy
+    // wildcard, you should on paper never reach this case
+    std::cout << "You've reached the Wildcard!!!! You should not be able to reach here" << std::endl;
+    return {false, {nullptr}};
 }
 // std::pair<bool, std::shared_ptr<TreeNode>> TwoTreeSolver::solve(int k, std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2) {
 //     forest1->print("Forest 1, k=" + std::to_string(k) + ":");

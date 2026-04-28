@@ -39,6 +39,8 @@ class Forest {
 		void detachByLabel(std::string label);
 		void contract(std::shared_ptr<TreeNode> v);
 		
+		std::pair<std::shared_ptr<TreeNode>, int> lca(std::string label_u, std::string label_v);
+
 		std::string treeToNewick(const std::shared_ptr<TreeNode>& node);
 		void printForestNewick();
 
