@@ -35,10 +35,11 @@ class Forest {
 		void expandMergedSubtrees();
 		void expandRecursive(std::shared_ptr<TreeNode> node);
 
-	    void detachChild(std::shared_ptr<TreeNode> child);
+	    void detachChild(std::shared_ptr<TreeNode> child, bool shouldContract = true);
 		void detachByLabel(std::string label);
 		void contract(std::shared_ptr<TreeNode> v);
-		
+		void contractIntoCherry(std::string lab_u, std::string lab_v, std::shared_ptr<TreeNode> ancestor);
+
 		std::pair<std::shared_ptr<TreeNode>, int> lca(std::string label_u, std::string label_v);
 		std::vector<std::shared_ptr<TreeNode>> collectPendantSubtreesBetweenLeaves(std::string leftLeaf,
                                                     std::string rightLeaf,

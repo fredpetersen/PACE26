@@ -4,12 +4,14 @@
 
 class TwoTreeTestSolver : public TwoTreeSolver {
 	public:
-		inline TwoTreeTestSolver(std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2, int leafCount)
-	: TwoTreeSolver(forest1, forest2, leafCount) {}
+		inline TwoTreeTestSolver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
+	: TwoTreeSolver(forests, leafCount) {}
 
 		int test_lca();
 
 		int test_contraction();
+
+		int testRecursiveContraction();
 
 		int test_singelton_leaf();
 

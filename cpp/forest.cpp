@@ -79,7 +79,7 @@ void Forest::expandRecursive(std::shared_ptr<TreeNode> node) {
 	}
 }
 
-void Forest::detachChild(std::shared_ptr<TreeNode> child) {
+void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract) {
 	//TODO: Is this really how you assign shared pointers?
 	auto parent = child->parent;
 	if (parent != nullptr) {
@@ -91,18 +91,20 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child) {
 			child->parent = nullptr;
 			parent->right = nullptr;
 		}
-		// else { // Wildcard TODO: investigate why this is being reached
-		// 	std::cout << "The given node does not have that child" << std::endl;
-		// }
+		else { // Wildcard TODO: investigate why this is being reached
+			std::cout << "# The given node does not have that child" << std::endl;
+		}
 		roots_.insert(child);
 		componentCount_++;
-		contract(parent);
+        if (shouldContract) {
+    		contract(parent);
+        }
 	}
 }
 
 void Forest::detachByLabel(std::string label) {
 	auto leaf = getLeafByLabel(label);
-	detachChild(leaf);
+	detachChild(leaf, true);
 }
 
 /**
@@ -125,8 +127,10 @@ void Forest::contract(std::shared_ptr<TreeNode> v) {
     if (v->parent != nullptr) { // v is not root node
         bool isRightChild = v->parent->right.get() == v.get();
         if (isRightChild) {
+            child->parent = v->parent;
             v->parent->right = std::move(child);
         } else {
+            child->parent = v->parent;
             v->parent->left = std::move(child);
         }
 
@@ -134,6 +138,26 @@ void Forest::contract(std::shared_ptr<TreeNode> v) {
         child->parent = nullptr;
         removeRoot(v);
         addRoot(child);
+    }
+}
+
+void Forest::contractIntoCherry(std::string lab_u, std::string lab_v, std::shared_ptr<TreeNode> ancestor) {
+    auto u = leafByLabel_[lab_u];
+    auto v = leafByLabel_[lab_v];
+    if (u != nullptr && v != nullptr && ancestor != nullptr) {
+        auto current = u;
+        std::shared_ptr<TreeNode> next;
+        while (current != ancestor && current->parent != nullptr) {
+            next = current->parent;
+            contract(current);
+            current = next;
+        }
+        current = v;
+        while (current != ancestor && current->parent != nullptr) {
+            next = current->parent;
+            contract(current);
+            current = next;
+        }
     }
 }
 

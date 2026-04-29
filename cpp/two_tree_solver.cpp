@@ -48,7 +48,7 @@ std::shared_ptr<Forest> TwoTreeSolver::solve() {
     int k = 1;
     // No reason to add a looping condition on k, theres is always a trivial solution with k = nr. of leaves
     while (!isSolved) {
-
+        std::cout << "# Looking for solution with size k = " << k << std::endl;
         auto res = solve(k++);
         isSolved = res.first;
         solution = res.second;
@@ -57,8 +57,7 @@ std::shared_ptr<Forest> TwoTreeSolver::solve() {
 }
 
 std::pair<bool, std::shared_ptr<Forest>> TwoTreeSolver::solve(int k) {
-    std::vector<std::shared_ptr<Forest>> forests = {forest1_, forest2_};
-    auto res = solve(k, forests);
+    auto res = solve(k, forests_);
     return {res.first, res.second[0]};
 }
 
@@ -75,7 +74,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
         return {true, {nullptr}};
     }
 
-    std::cout << "# Step 1" << std::endl;
+    // std::cout << "# Step 1" << std::endl;
     // Step 1 (if there's only 1 forest left, this forest is the MAF)
     if (fs.size() == 1) {
         return {true, fs};
@@ -83,39 +82,44 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
 
     auto f2 = fs[1];
 
-    std::cout << "# Step 2" << std::endl;
+    // f1->print("Forest 1");
+    // f2->print("Forest 2");
+
+    // std::cout << "# Step 2" << std::endl;
     // Step 2 (if there are more components on the MAF we're building than k, the solution is too big (i.e. invalid))
     if (f1->getComponentCount() > k) {
         return {false, {nullptr}};
     }
 
 
-    std::cout << "# Step 3" << std::endl;
+    // std::cout << "# Step 3" << std::endl;
     // Step 3 (clean the single vertex trees)
+    // std::cout << "# Step 3.1" << std::endl;
     cleanSingletonLeaves(f1, f2);
+    // std::cout << "# Step 3.2" << std::endl;
     cleanSingletonLeaves(f2, f1);
 
 
-    std::cout << "# Step 4" << std::endl;
+    // std::cout << "# Step 4" << std::endl;
     // Step 4 (try to get a sibling pair in F2. If it can't be done, move on to solving F3)
     auto [idx, siblingPair] = f2->getOneSiblingPair();
     if (idx == -1) {
         fs.erase(fs.begin() + 1);
         f1->expandMergedSubtrees(); // Undoes the local merge (necessary to step through the algorithm)
-        sol = solve(k, fs);
-        if (sol.first) {
-            return sol;
-        }
+        // This branch doesn't check for the value of sol, since regardless of the result you have to return
+        return solve(k, fs);
     }
 
-    std::cout << "# Step 5" << std::endl;
+    // std::cout << "# Step 5" << std::endl;
     // Step 5
     // labels of the nodes
     auto lab_u = siblingPair.first->label;
     auto lab_v = siblingPair.second->label;
     auto [ancestor, dist] = f1->lca(lab_u, lab_v);
 
-    std::cout << "# Step 6" << std::endl;
+    // std::cout << "# Working with sibling pair: (" << lab_u << ", " << lab_v << ")" << std::endl;
+
+    // std::cout << "# Step 6" << std::endl;
     // Step 6 (when u and v are in different components in F1, branch on cutting either u or v)
     if (dist == -1) {
         // clone the forests to run 1 version on each branch
@@ -123,7 +127,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
         auto fc1 = fsClone[0];
         auto fc2 = fsClone[1];
 
-        std::cout << "# Step 6.1" << std::endl;
+        // std::cout << "# Step 6.1" << std::endl;
         // remember, f1 and f2 (from fs) is already a clone of the argument passed in
         f1->detachByLabel(lab_u);
         f2->detachByLabel(lab_u);
@@ -132,7 +136,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
             return sol;
         }
 
-        std::cout << "# Step 6.2" << std::endl;
+        // std::cout << "# Step 6.2" << std::endl;
         fc1->detachByLabel(lab_v);
         fc2->detachByLabel(lab_v);
         sol = solve(k, fsClone);
@@ -143,7 +147,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
 
     // Step 7 (when u and v are siblings in F1, do a local merge of u and v in both F1 and F2)
     else if (dist == 1) {
-        std::cout << "# Step 7" << std::endl;
+        // std::cout << "# Step 7" << std::endl;
         f1->forestMergeCherry(f1->getLeafByLabel(lab_u)->parent);
         f2->forestMergeCherry(f2->getLeafByLabel(lab_u)->parent);
         sol = solve(k, fs);
@@ -154,7 +158,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
 
     // Step 8 (when the distance between u and v in F1 is >= 2) // TODO: maybe case 2 (ie dist = 2) isnt a special case when there are n trees?
     else if (dist > 1){
-        std::cout << "# Step 8" << std::endl;
+        // std::cout << "# Step 8" << std::endl;
         auto fsClone1 = cloneForests(fs);
         auto f1c1 = fsClone1[0];
         auto f2c1 = fsClone1[1];
@@ -162,7 +166,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
         auto fsClone2 = cloneForests(fs);
         auto f1c2 = fsClone2[0];
 
-        std::cout << "# Step 8.1" << std::endl;
+        // std::cout << "# Step 8.1" << std::endl;
         // branch 1, cut u from F1 and F2
         f1->detachByLabel(lab_u);
         f2->detachByLabel(lab_u);
@@ -171,7 +175,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
             return sol;
         }
 
-        std::cout << "# Step 8.2" << std::endl;
+        // std::cout << "# Step 8.2" << std::endl;
         // branch 2, cut v from F1 and F2
         f1c1->detachByLabel(lab_v);
         f2c1->detachByLabel(lab_v);
@@ -180,17 +184,19 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
             return sol;
         }
 
-        std::cout << "# Step 8.3" << std::endl;
+        // std::cout << "# Step 8.3" << std::endl;
         // branch 3, cut all pendant subtrees between u and v from F1 only
-        auto newRoots = f1c2->collectPendantSubtreesBetweenLeaves(lab_u, lab_v, ancestor);
+        auto cloneAncestor = f1c2->lca(lab_u, lab_v).first;
+        auto newRoots = f1c2->collectPendantSubtreesBetweenLeaves(lab_u, lab_v, cloneAncestor);
         for (const auto & r : newRoots) {
-            f1c2->detachChild(r);
+            f1c2->detachChild(r, false);
         }
+        f1c2->contractIntoCherry(lab_u, lab_v, cloneAncestor);
         sol = solve(k, fsClone2);
         if (sol.first) {
             return sol;
         }
     }
-    std::cout << "# Dead End" << std::endl;
+    // std::cout << "# Dead End" << std::endl;
     return {false, {nullptr}};
 }

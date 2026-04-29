@@ -22,20 +22,17 @@ Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be con
 */
 
 class TwoTreeSolver {
-  std::shared_ptr<Forest> forest1_;
-  std::shared_ptr<Forest> forest2_;
+  std::vector<std::shared_ptr<Forest>> forests_;
   int leafCount_;
 
 public:
-    inline TwoTreeSolver(std::shared_ptr<Forest> forest1, std::shared_ptr<Forest> forest2, int leafCount)
-    : forest1_(forest1), forest2_(forest2), leafCount_(leafCount) {}
+    inline TwoTreeSolver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
+    : forests_(forests), leafCount_(leafCount) {}
 
 
     void printForests() const;
 
     void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest); //should use Forest* instead
-
-    void contract(std::shared_ptr<TreeNode> v, std::shared_ptr<Forest> forest);
 
     std::vector<std::shared_ptr<Forest>> cloneForests(std::vector<std::shared_ptr<Forest>> forests);
 
