@@ -6,7 +6,7 @@
 This function pretends that the parent of 2 leaves is a leaf, which constitutes a local level merge. This is done in a way that doesn't remove information, since
 it will have to be un-merged later.
 */
-void mergeCherry(std::shared_ptr<TreeNode> node) {
+void mergeCherry(TreeNode* node) {
     auto l = node->left;
     auto r = node->right;
 
