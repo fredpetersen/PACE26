@@ -44,17 +44,29 @@ struct SiblingPairEq {
 };
 
 class Forest {
+	public:
+		using SiblingPair = std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>;
+		using SiblingPairSet = std::unordered_set<SiblingPair, SiblingPairHash, SiblingPairEq>;
+
+	private:
 	std::unordered_set<std::shared_ptr<TreeNode>> roots_;
 	std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
 	int componentCount_;
 	std::unordered_map<std::string, std::shared_ptr<TreeNode>> leafByLabel_;
+	std::unordered_set<TreeNode*> siblingPairParents_;
+
+	bool isSiblingPairNode(const std::shared_ptr<TreeNode>& node) const;
+	void updateSiblingPairParent(const std::shared_ptr<TreeNode>& node, MutationTrail* trail);
+	void rebuildSiblingPairCache();
 
 	public:
-		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}) {}
+		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}), siblingPairParents_({}) {}
 
 		inline Forest(std::unordered_set<std::shared_ptr<TreeNode>> roots, std::unordered_set<std::shared_ptr<TreeNode>> leaves,
 			std::unordered_map<std::string, std::shared_ptr<TreeNode>> leafByLabel)
-			: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel) {}
+			: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel) {
+			rebuildSiblingPairCache();
+		}
 
 		void forestMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
 		void expandMergedSubtrees(MutationTrail* trail = nullptr);
@@ -94,8 +106,8 @@ class Forest {
 		std::unordered_set<std::shared_ptr<TreeNode>> getRoots();
 		std::unordered_set<std::shared_ptr<TreeNode>> getLeaves();
 		std::shared_ptr<TreeNode> getLeafByLabel(const std::string& label) const;
-		std::unordered_set<std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>, SiblingPairHash,SiblingPairEq> getSiblingLeafPairs();
-		std::pair<int, std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>> getOneSiblingPair(int startIndex = 0);
+		SiblingPairSet getSiblingLeafPairs();
+		std::pair<int, SiblingPair> getOneSiblingPair(int startIndex = 0);
 
 		void setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots);
 		void setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves);

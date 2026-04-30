@@ -1,5 +1,7 @@
 #include <forest.h>
 
+#include <iterator>
+
 
 /* Hashing and equality functions assume that the TreeNodes will always be given in the same order
 
@@ -37,6 +39,58 @@ namespace {
 
 }
 
+bool Forest::isSiblingPairNode(const std::shared_ptr<TreeNode>& node) const {
+    return node != nullptr
+        && !node->isMerged
+        && node->left != nullptr
+        && node->right != nullptr
+        && node->left->isLeaf
+        && node->right->isLeaf;
+}
+
+void Forest::updateSiblingPairParent(const std::shared_ptr<TreeNode>& node, MutationTrail* trail) {
+    if (node == nullptr) {
+        return;
+    }
+
+    bool shouldExist = isSiblingPairNode(node);
+    auto key = node.get();
+    auto it = siblingPairParents_.find(key);
+    bool exists = it != siblingPairParents_.end();
+
+    if (shouldExist && !exists) {
+        siblingPairParents_.insert(key);
+        if (trail != nullptr) {
+            trail->record([this, key]() {
+                siblingPairParents_.erase(key);
+            });
+        }
+    } else if (!shouldExist && exists) {
+        siblingPairParents_.erase(it);
+        if (trail != nullptr) {
+            trail->record([this, key]() {
+                siblingPairParents_.insert(key);
+            });
+        }
+    }
+}
+
+void Forest::rebuildSiblingPairCache() {
+    siblingPairParents_.clear();
+
+    std::unordered_map<std::shared_ptr<TreeNode>, std::vector<std::shared_ptr<TreeNode>>> parentToLeaves;
+    for (const auto& leaf : leaves_) {
+        if (leaf != nullptr && leaf->parent != nullptr) {
+            parentToLeaves[leaf->parent].push_back(leaf);
+        }
+    }
+    for (const auto& [parent, leaves] : parentToLeaves) {
+        if (leaves.size() == 2 && parent != nullptr && !parent->isMerged && parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
+            siblingPairParents_.insert(parent.get());
+        }
+    }
+}
+
 
 void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
     if (node == nullptr) {
@@ -65,6 +119,8 @@ void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* tr
     }
 
     addLeaf(node, trail);
+    updateSiblingPairParent(node, trail);
+    updateSiblingPairParent(node->parent, trail);
 }
 
 void Forest::expandMergedSubtrees(MutationTrail* trail) {
@@ -103,6 +159,8 @@ void Forest::expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trai
         });
     }
 
+    updateSiblingPairParent(node->parent, trail);
+
     auto l = node->left;
     auto r = node->right;
 
@@ -120,6 +178,8 @@ void Forest::expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trai
             expandRecursive(r, trail);
         }
     }
+
+    updateSiblingPairParent(node, trail);
 }
 
 void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract, MutationTrail* trail) {
@@ -167,6 +227,8 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract, M
                 });
             }
         }
+
+        updateSiblingPairParent(parent, trail);
 
         ++componentCount_;
         if (trail != nullptr) {
@@ -238,6 +300,8 @@ void Forest::contract(std::shared_ptr<TreeNode> v, MutationTrail* trail) {
                 });
             }
         }
+
+        updateSiblingPairParent(parent, trail);
 
     } else { // v is root node
         auto previousChildParent = child->parent;
@@ -416,6 +480,7 @@ std::shared_ptr<Forest> Forest::cloneForest() const {
 		auto clonedRoot = clone->cloneTree(root);
 		clone->addRoot(clonedRoot);
 	}
+    clone->rebuildSiblingPairCache();
 
 	return clone;
 }
@@ -514,6 +579,8 @@ void Forest::addLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
             }
         });
     }
+
+    updateSiblingPairParent(node->parent, trail);
 }
 
 void Forest::removeRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
@@ -550,6 +617,8 @@ void Forest::removeLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
             }
         });
     }
+
+    updateSiblingPairParent(node->parent, trail);
 }
 
 std::unordered_set<std::shared_ptr<TreeNode>> Forest::getRoots() {
@@ -571,23 +640,13 @@ std::shared_ptr<TreeNode> Forest::getLeafByLabel(const std::string& label) const
     * as merges and contractions happen.
     */
 std::unordered_set<
-    std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>,
+    Forest::SiblingPair,
     SiblingPairHash,SiblingPairEq
 > Forest::getSiblingLeafPairs() {
-
-    std::unordered_set<
-        std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>,
-        SiblingPairHash,SiblingPairEq> siblingLeafPairs;
-
-    std::unordered_map<std::shared_ptr<TreeNode>, std::vector<std::shared_ptr<TreeNode>>> parentToLeaves;
-    for (const auto& leaf : leaves_) {
-        if (leaf->parent != nullptr) {
-            parentToLeaves[leaf->parent].push_back(leaf);
-        }
-    }
-    for (const auto& [parent, leaves] : parentToLeaves) {
-        if (leaves.size() == 2) {
-            siblingLeafPairs.insert({leaves[0], leaves[1]});
+    SiblingPairSet siblingLeafPairs;
+    for (const auto parent : siblingPairParents_) {
+        if (parent != nullptr && parent->left != nullptr && parent->right != nullptr) {
+            siblingLeafPairs.insert({parent->left, parent->right});
         }
     }
     return siblingLeafPairs;
@@ -603,28 +662,28 @@ std::unordered_set<
  *
  * It runs in O(n) time, but is likely faster in practice than getSiblingLeafPairs() since it can return early as soon as it finds a sibling pair.
  */
-std::pair<int, std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>> Forest::getOneSiblingPair(int startIndex) {
-		int currentIndex = startIndex;
-		auto it = leaves_.begin();
-		it = std::next(it, currentIndex);
-		for (; it != leaves_.end(); ++it) {
-				auto leaf = *it;
-				if (leaf->parent != nullptr) {
-						auto parent = leaf->parent;
-						if (!parent->isMerged && parent->left && parent->right && parent->left->isLeaf && parent->right->isLeaf) {
-							return {currentIndex, {parent->left, parent->right}};
-						}
-				}
-				currentIndex++;
-		}
-		return {-1, {nullptr, nullptr}}; // No sibling pairs found
+std::pair<int, Forest::SiblingPair> Forest::getOneSiblingPair(int startIndex) {
+    if (siblingPairParents_.empty()) {
+        return {-1, {nullptr, nullptr}};
+    }
+
+    (void)startIndex;
+    auto it = siblingPairParents_.begin();
+    auto parent = *it;
+    if (parent == nullptr || parent->left == nullptr || parent->right == nullptr) {
+        return {-1, {nullptr, nullptr}};
+    }
+    return {0, {parent->left, parent->right}};
 }
 void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
 	roots_ = newRoots;
+    rebuildSiblingPairCache();
 }
 void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) {
 	leaves_ = newLeaves;
+    rebuildSiblingPairCache();
 }
 void Forest::setLeavesByLabel(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeavesByLabel) {
 	leafByLabel_ = newLeavesByLabel;
+    rebuildSiblingPairCache();
 }
