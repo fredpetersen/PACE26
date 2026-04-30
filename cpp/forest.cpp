@@ -25,86 +25,168 @@ bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::s
     }
 
 
-void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node) {
-	auto l = node->left;
-	auto r = node->right;
-    if (l->isLeaf && r->isLeaf) {
-		leaves_.erase(l);
-		leaves_.erase(r);
-		leafByLabel_.erase(l->label);
-		leafByLabel_.erase(r->label);
-
-		mergeCherry(node);
-
-		leaves_.insert(node);
-		leafByLabel_[node->label] = node;
-	}
-}
-
-void Forest::expandMergedSubtrees() {
-	// You have to make this copy, since you can't iterate through a list while editing the same list
-	auto leavesCopy = leaves_;
-	for (const auto leaf: leavesCopy) {
-		if (leaf->isMerged) {
-			expandRecursive(leaf);
-		}
-	}
-}
-
-
-void Forest::expandRecursive(std::shared_ptr<TreeNode> node) {
-	if (node->isMerged) {
-		leaves_.erase(node);
-		leafByLabel_.erase(node->label);
-
-		node->isMerged = false;
-		node->isLeaf = false;
-		node->label = "0";
-
-		auto l = node->left;
-		auto r = node->right;
-
-		if (!l->isMerged) {
-			leaves_.insert(l);
-			leafByLabel_[l->label] = l;
-		} else {
-			expandRecursive(l);
-		}
-		if (!r->isMerged) {
-			leaves_.insert(r);
-			leafByLabel_[r->label] = r;
-		} else {
-			expandRecursive(r);
-		}
-	}
-}
-
-void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract) {
-	//TODO: Is this really how you assign shared pointers?
-	auto parent = child->parent;
-	if (parent != nullptr) {
-		roots_.insert(child);
-		if (parent->left == child) {
-			child->parent = nullptr;
-			parent->left = nullptr;
-		} else if (parent->right == child) {
-			child->parent = nullptr;
-			parent->right = nullptr;
-		}
-		else { // Wildcard TODO: investigate why this is being reached
-			std::cout << "# The given node does not have that child" << std::endl;
-		}
-		roots_.insert(child);
-		componentCount_++;
-        if (shouldContract) {
-    		contract(parent);
+namespace {
+    std::shared_ptr<TreeNode> lookupLeaf(const std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel,
+                                         const std::string& label) {
+        auto it = leafByLabel.find(label);
+        if (it == leafByLabel.end()) {
+            return nullptr;
         }
-	}
+        return it->second;
+    }
+
 }
 
-void Forest::detachByLabel(std::string label) {
-	auto leaf = getLeafByLabel(label);
-	detachChild(leaf, true);
+
+void Forest::forestMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
+    if (node == nullptr) {
+        return;
+    }
+    auto l = node->left;
+    auto r = node->right;
+    if (l == nullptr || r == nullptr || !l->isLeaf || !r->isLeaf) {
+        return;
+    }
+
+    auto oldLabel = node->label;
+    auto oldIsLeaf = node->isLeaf;
+    auto oldIsMerged = node->isMerged;
+
+    removeLeaf(l, trail);
+    removeLeaf(r, trail);
+
+    mergeCherry(node);
+    if (trail != nullptr) {
+        trail->record([node, oldLabel, oldIsLeaf, oldIsMerged]() {
+            node->label = oldLabel;
+            node->isLeaf = oldIsLeaf;
+            node->isMerged = oldIsMerged;
+        });
+    }
+
+    addLeaf(node, trail);
+}
+
+void Forest::expandMergedSubtrees(MutationTrail* trail) {
+    std::vector<std::shared_ptr<TreeNode>> mergedLeaves;
+    mergedLeaves.reserve(leaves_.size());
+    for (const auto& leaf : leaves_) {
+        if (leaf->isMerged) {
+            mergedLeaves.push_back(leaf);
+        }
+    }
+    for (const auto& leaf : mergedLeaves) {
+        expandRecursive(leaf, trail);
+    }
+}
+
+
+void Forest::expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
+    if (node == nullptr || !node->isMerged) {
+        return;
+    }
+
+    auto oldLabel = node->label;
+    auto oldIsLeaf = node->isLeaf;
+    auto oldIsMerged = node->isMerged;
+
+    removeLeaf(node, trail);
+
+    node->isMerged = false;
+    node->isLeaf = false;
+    node->label = "0";
+    if (trail != nullptr) {
+        trail->record([node, oldLabel, oldIsLeaf, oldIsMerged]() {
+            node->label = oldLabel;
+            node->isLeaf = oldIsLeaf;
+            node->isMerged = oldIsMerged;
+        });
+    }
+
+    auto l = node->left;
+    auto r = node->right;
+
+    if (l != nullptr) {
+        if (!l->isMerged) {
+            addLeaf(l, trail);
+        } else {
+            expandRecursive(l, trail);
+        }
+    }
+    if (r != nullptr) {
+        if (!r->isMerged) {
+            addLeaf(r, trail);
+        } else {
+            expandRecursive(r, trail);
+        }
+    }
+}
+
+void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract, MutationTrail* trail) {
+    if (child == nullptr) {
+        return;
+    }
+    auto parent = child->parent;
+    if (parent != nullptr) {
+        bool isLeftChild = parent->left == child;
+        bool isRightChild = parent->right == child;
+        if (!isLeftChild && !isRightChild) {
+            std::cout << "# The given node does not have that child" << std::endl;
+            return;
+        }
+
+        auto inserted = roots_.insert(child).second;
+        if (trail != nullptr && inserted) {
+            trail->record([this, child]() {
+                roots_.erase(child);
+            });
+        }
+
+        auto previousParent = child->parent;
+        child->parent = nullptr;
+        if (trail != nullptr) {
+            trail->record([child, previousParent]() {
+                child->parent = previousParent;
+            });
+        }
+
+        if (isLeftChild) {
+            auto previousLeft = parent->left;
+            parent->left = nullptr;
+            if (trail != nullptr) {
+                trail->record([parent, previousLeft]() {
+                    parent->left = previousLeft;
+                });
+            }
+        } else {
+            auto previousRight = parent->right;
+            parent->right = nullptr;
+            if (trail != nullptr) {
+                trail->record([parent, previousRight]() {
+                    parent->right = previousRight;
+                });
+            }
+        }
+
+        ++componentCount_;
+        if (trail != nullptr) {
+            trail->record([this]() {
+                --componentCount_;
+            });
+        }
+
+        if (shouldContract) {
+            contract(parent, trail);
+        }
+    }
+}
+
+void Forest::detachByLabel(const std::string& label, MutationTrail* trail) {
+    auto leaf = getLeafByLabel(label);
+    if (leaf == nullptr) {
+        return;
+    }
+    detachChild(leaf, true, trail);
 }
 
 /**
@@ -116,46 +198,76 @@ void Forest::detachByLabel(std::string label) {
     *
     * Does nothing if v has 0 or 2 children, as it is not possible to contract in those cases.
     */
-void Forest::contract(std::shared_ptr<TreeNode> v) {
+void Forest::contract(std::shared_ptr<TreeNode> v, MutationTrail* trail) {
+    if (v == nullptr) return;
+
     bool hasLeftChild = v->left != nullptr;
-    bool hasRightChild = v->right.get() != nullptr;
+    bool hasRightChild = v->right != nullptr;
     if (hasLeftChild && hasRightChild) return; // Both children are present; can't contract
     if (v->isLeaf) return; // can't contract leaf nodes
 
     auto child = hasLeftChild ? v->left : v->right; // The only child of v
+    if (child == nullptr) return;
 
     if (v->parent != nullptr) { // v is not root node
-        bool isRightChild = v->parent->right.get() == v.get();
+        auto parent = v->parent;
+        bool isRightChild = parent->right.get() == v.get();
+
+        auto previousChildParent = child->parent;
+        child->parent = parent;
+        if (trail != nullptr) {
+            trail->record([child, previousChildParent]() {
+                child->parent = previousChildParent;
+            });
+        }
+
         if (isRightChild) {
-            child->parent = v->parent;
-            v->parent->right = std::move(child);
+            auto previousRight = parent->right;
+            parent->right = child;
+            if (trail != nullptr) {
+                trail->record([parent, previousRight]() {
+                    parent->right = previousRight;
+                });
+            }
         } else {
-            child->parent = v->parent;
-            v->parent->left = std::move(child);
+            auto previousLeft = parent->left;
+            parent->left = child;
+            if (trail != nullptr) {
+                trail->record([parent, previousLeft]() {
+                    parent->left = previousLeft;
+                });
+            }
         }
 
     } else { // v is root node
+        auto previousChildParent = child->parent;
         child->parent = nullptr;
-        removeRoot(v);
-        addRoot(child);
+        if (trail != nullptr) {
+            trail->record([child, previousChildParent]() {
+                child->parent = previousChildParent;
+            });
+        }
+
+        removeRoot(v, trail);
+        addRoot(child, trail);
     }
 }
 
-void Forest::contractIntoCherry(std::string lab_u, std::string lab_v, std::shared_ptr<TreeNode> ancestor) {
-    auto u = leafByLabel_[lab_u];
-    auto v = leafByLabel_[lab_v];
+void Forest::contractIntoCherry(const std::string& lab_u, const std::string& lab_v, std::shared_ptr<TreeNode> ancestor, MutationTrail* trail) {
+    auto u = getLeafByLabel(lab_u);
+    auto v = getLeafByLabel(lab_v);
     if (u != nullptr && v != nullptr && ancestor != nullptr) {
         auto current = u;
         std::shared_ptr<TreeNode> next;
         while (current != ancestor && current->parent != nullptr) {
             next = current->parent;
-            contract(current);
+            contract(current, trail);
             current = next;
         }
         current = v;
         while (current != ancestor && current->parent != nullptr) {
             next = current->parent;
-            contract(current);
+            contract(current, trail);
             current = next;
         }
     }
@@ -173,10 +285,12 @@ void Forest::contractIntoCherry(std::string lab_u, std::string lab_v, std::share
 
     This function returns {ancestor, distance}, where distance == -1 if u and v are in different trees.
 */
-std::pair<std::shared_ptr<TreeNode>, int> Forest::lca(std::string label_u, std::string label_v) {
-    auto u = leafByLabel_[label_u];
-    auto v = leafByLabel_[label_v];
-	
+std::pair<std::shared_ptr<TreeNode>, int> Forest::lca(const std::string& label_u, const std::string& label_v) {
+    auto u = getLeafByLabel(label_u);
+    auto v = getLeafByLabel(label_v);
+	if (u == nullptr || v == nullptr) {
+		return {nullptr, -1};
+	}
 	if(label_u == label_v) {
         return {u, 0};
     }
@@ -225,12 +339,12 @@ std::pair<std::shared_ptr<TreeNode>, int> Forest::lca(std::string label_u, std::
     }
 }
 
-std::vector<std::shared_ptr<TreeNode>> Forest::collectPendantSubtreesBetweenLeaves(std::string u_label,
-                                                    std::string v_label,
+std::vector<std::shared_ptr<TreeNode>> Forest::collectPendantSubtreesBetweenLeaves(const std::string& u_label,
+                                                    const std::string& v_label,
                                                     std::shared_ptr<TreeNode>& lcaNode) {
         std::vector<std::shared_ptr<TreeNode>> pendantSubtrees;
-		auto u = leafByLabel_[u_label];
-		auto v = leafByLabel_[v_label];
+        auto u = getLeafByLabel(u_label);
+        auto v = getLeafByLabel(v_label);
 
         if (u == nullptr || v == nullptr || lcaNode == nullptr) {
             return pendantSubtrees;
@@ -352,29 +466,90 @@ void Forest::printForestNewick() {
 	}
 }
 
-void Forest::setComponentCount(int newCount) {
-	componentCount_ = newCount;
+void Forest::setComponentCount(int newCount, MutationTrail* trail) {
+    if (trail != nullptr) {
+        auto previousCount = componentCount_;
+        trail->record([this, previousCount]() {
+            componentCount_ = previousCount;
+        });
+    }
+    componentCount_ = newCount;
 }
 
 int Forest::getComponentCount() {
 	return componentCount_;
 }
 
-void Forest::addRoot(std::shared_ptr<TreeNode> node) {
-	roots_.insert(node);
+void Forest::addRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
+    if (node == nullptr) {
+        return;
+    }
+    bool inserted = roots_.insert(node).second;
+    if (trail != nullptr && inserted) {
+        trail->record([this, node]() {
+            roots_.erase(node);
+        });
+    }
 }
 
-void Forest::addLeaf(std::shared_ptr<TreeNode> node) {
-	leaves_.insert(node);
-	leafByLabel_[node->label] = node;
+void Forest::addLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
+    if (node == nullptr) {
+        return;
+    }
+    auto label = node->label;
+    auto previousIt = leafByLabel_.find(label);
+    auto previousNode = previousIt == leafByLabel_.end() ? nullptr : previousIt->second;
+    bool hadPrevious = previousIt != leafByLabel_.end();
+
+    bool inserted = leaves_.insert(node).second;
+    leafByLabel_[label] = node;
+
+    if (trail != nullptr && inserted) {
+        trail->record([this, node, label, previousNode, hadPrevious]() {
+            leaves_.erase(node);
+            if (hadPrevious) {
+                leafByLabel_[label] = previousNode;
+            } else {
+                leafByLabel_.erase(label);
+            }
+        });
+    }
 }
 
-void Forest::removeRoot(std::shared_ptr<TreeNode> node) {
-	roots_.erase(node);
+void Forest::removeRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
+    if (node == nullptr) {
+        return;
+    }
+    auto erased = roots_.erase(node);
+    if (trail != nullptr && erased > 0) {
+        trail->record([this, node]() {
+            roots_.insert(node);
+        });
+    }
 }
 
-void Forest::removeLeaf(std::shared_ptr<TreeNode> node) {
-	leaves_.erase(node);
+void Forest::removeLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
+    if (node == nullptr) {
+        return;
+    }
+    auto label = node->label;
+    auto previousIt = leafByLabel_.find(label);
+    auto previousNode = previousIt == leafByLabel_.end() ? nullptr : previousIt->second;
+    bool hadMapping = previousIt != leafByLabel_.end() && previousIt->second == node;
+
+    auto erased = leaves_.erase(node);
+    if (hadMapping) {
+        leafByLabel_.erase(previousIt);
+    }
+
+    if (trail != nullptr && erased > 0) {
+        trail->record([this, node, label, previousNode, hadMapping]() {
+            leaves_.insert(node);
+            if (hadMapping) {
+                leafByLabel_[label] = previousNode;
+            }
+        });
+    }
 }
 
 std::unordered_set<std::shared_ptr<TreeNode>> Forest::getRoots() {
@@ -383,8 +558,8 @@ std::unordered_set<std::shared_ptr<TreeNode>> Forest::getRoots() {
 std::unordered_set<std::shared_ptr<TreeNode>> Forest::getLeaves() {
 	return leaves_;
 }
-std::shared_ptr<TreeNode> Forest::getLeafByLabel(std::string label) {
-	return leafByLabel_[label];
+std::shared_ptr<TreeNode> Forest::getLeafByLabel(const std::string& label) const {
+    return lookupLeaf(leafByLabel_, label);
 }
 
 /**

@@ -32,11 +32,14 @@ public:
 
     void printForests() const;
 
-    void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest); //should use Forest* instead
+  void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail = nullptr); //should use Forest* instead
 
     std::vector<std::shared_ptr<Forest>> cloneForests(std::vector<std::shared_ptr<Forest>> forests);
 
     std::shared_ptr<Forest> solve();
     std::pair<bool, std::shared_ptr<Forest>> solve(int k);
     std::pair<bool, std::vector<std::shared_ptr<Forest>>> solve(int k, std::vector<std::shared_ptr<Forest>> forests);
+
+private:
+  std::pair<bool, std::vector<std::shared_ptr<Forest>>> solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests, MutationTrail& trail);
 };
