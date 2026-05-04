@@ -1,9 +1,8 @@
-#include <two_tree_test_solver.h>
+#include <test_solver.h>
 
-#include <two_tree_solver.h>
+#include <solver.h>
 
-int TwoTreeTestSolver::test_lca() {
-	//TODO: implement
+int TestSolver::test_lca() {
 	std::cout << std::endl << "Testing the Lowest Common Ancestor (lca) function" << std::endl;
 
 	auto forest = std::make_shared<Forest>();
@@ -68,7 +67,7 @@ int TwoTreeTestSolver::test_lca() {
 	return 0;
 }
 
-int TwoTreeTestSolver::test_contraction() {
+int TestSolver::test_contraction() {
 	std::cout << std::endl << "Testing the Contraction function" << std::endl;
 
 	auto v = std::make_shared<TreeNode>();
@@ -100,7 +99,7 @@ int TwoTreeTestSolver::test_contraction() {
 	return 0;
 }
 
-int TwoTreeTestSolver::testRecursiveContraction() {
+int TestSolver::testRecursiveContraction() {
 	auto forest = std::make_shared<Forest>();
 
 	auto n1 = std::make_shared<TreeNode>();
@@ -173,7 +172,7 @@ int TwoTreeTestSolver::testRecursiveContraction() {
 	return 0;
 }
 
-int TwoTreeTestSolver::test_singelton_leaf() {
+int TestSolver::test_singelton_leaf() {
 	std::cout << std::endl << "Testing the Clean Singelton Leaf function" << std::endl;
 
 	auto f1 = std::make_shared<Forest>();
@@ -252,7 +251,7 @@ int TwoTreeTestSolver::test_singelton_leaf() {
 	return 0;
 }
 
-int TwoTreeTestSolver::testgetLeafByLabel() {
+int TestSolver::testgetLeafByLabel() {
 	auto forest = std::make_shared<Forest>();
 
 	auto n1 = std::make_shared<TreeNode>();
@@ -294,7 +293,7 @@ int TwoTreeTestSolver::testgetLeafByLabel() {
 	return 0;
 }
 
-int TwoTreeTestSolver::testGetSiblingsPairs() {
+int TestSolver::testGetSiblingsPairs() {
 	auto forest = std::make_shared<Forest>();
 	if(true) { // Wrapped in if statement to allow collapsing in IDE, as forest construction is a bit verbose
 		auto n1 = std::make_shared<TreeNode>();
@@ -389,7 +388,7 @@ int TwoTreeTestSolver::testGetSiblingsPairs() {
 	return 0;
 }
 
-int TwoTreeTestSolver::test() {
+int TestSolver::test() {
 	// test_lca();
 	// test_contraction();
 	testRecursiveContraction();

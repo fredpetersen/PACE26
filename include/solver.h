@@ -21,12 +21,12 @@
 Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be considered different pairs
 */
 
-class TwoTreeSolver {
+class Solver {
   std::vector<std::shared_ptr<Forest>> forests_;
   int leafCount_;
 
 public:
-    inline TwoTreeSolver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
+    inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
     : forests_(forests), leafCount_(leafCount) {}
 
 

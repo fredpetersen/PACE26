@@ -1,4 +1,4 @@
-#include <two_tree_solver.h>
+#include <solver.h>
 
 #include <cctype>
 #include <iostream>
@@ -16,7 +16,7 @@
 #include <tree_node.h>
 #include <forest.h>
 
-void TwoTreeSolver::printForests() const {
+void Solver::printForests() const {
     // TODO: Rework this to work actually good
     // forest1_->print("Forest 1");
     // forest2_->print("Forest 2");
@@ -24,7 +24,7 @@ void TwoTreeSolver::printForests() const {
 }
 
 
-void TwoTreeSolver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail) {
+void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail) {
     for (const auto& root : mainForest->getRoots()) {
         if (root != nullptr && root->isLeaf) {
             otherForest->detachByLabel(root->label, trail);
@@ -32,7 +32,7 @@ void TwoTreeSolver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std
     }
 }
 
-std::vector<std::shared_ptr<Forest>> TwoTreeSolver::cloneForests(std::vector<std::shared_ptr<Forest>> forests) {
+std::vector<std::shared_ptr<Forest>> Solver::cloneForests(std::vector<std::shared_ptr<Forest>> forests) {
     std::vector<std::shared_ptr<Forest>> forestClones = {};
     for (const auto& forest : forests) {
         forestClones.push_back(forest->cloneForest());
@@ -40,7 +40,7 @@ std::vector<std::shared_ptr<Forest>> TwoTreeSolver::cloneForests(std::vector<std
     return forestClones;
 }
 
-std::shared_ptr<Forest> TwoTreeSolver::solve() {
+std::shared_ptr<Forest> Solver::solve() {
     bool isSolved = false;
     std::shared_ptr<Forest> solution;
     int k = 1;
@@ -54,12 +54,12 @@ std::shared_ptr<Forest> TwoTreeSolver::solve() {
     return solution;
 }
 
-std::pair<bool, std::shared_ptr<Forest>> TwoTreeSolver::solve(int k) {
+std::pair<bool, std::shared_ptr<Forest>> Solver::solve(int k) {
     auto res = solve(k, forests_);
     return {res.first, res.second[0]};
 }
 
-std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k, std::vector<std::shared_ptr<Forest>> forests) {
+std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solve(int k, std::vector<std::shared_ptr<Forest>> forests) {
     MutationTrail trail;
     auto checkpoint = trail.checkpoint();
     auto result = solveRecursive(k, std::move(forests), trail);
@@ -69,7 +69,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solve(int k
     return result;
 }
 
-std::pair<bool, std::vector<std::shared_ptr<Forest>>> TwoTreeSolver::solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests, MutationTrail& trail) {
+std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests, MutationTrail& trail) {
 
     if (forests.size() < 1) {
         return {true, {nullptr}};

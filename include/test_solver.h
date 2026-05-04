@@ -1,11 +1,11 @@
 #pragma once
 
-#include <two_tree_solver.h>
+#include <solver.h>
 
-class TwoTreeTestSolver : public TwoTreeSolver {
+class TestSolver : public Solver {
 	public:
-		inline TwoTreeTestSolver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
-	: TwoTreeSolver(forests, leafCount) {}
+		inline TestSolver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
+	: Solver(forests, leafCount) {}
 
 		int test_lca();
 
