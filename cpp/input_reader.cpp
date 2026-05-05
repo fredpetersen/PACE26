@@ -16,9 +16,11 @@
 #include <tree_node.h>
 #include <forest.h>
 
-std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> NewickParser::parseTree(std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel) {
+std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> NewickParser::parseTree(std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel,
+                                                                                                    std::unordered_map<std::string, std::shared_ptr<TreeNode>>& nodeByCps,
+                                                                                                    std::unordered_map<std::string, int>& cpsMap) {
     std::unordered_set<std::shared_ptr<TreeNode>> leaves;
-    auto root = parseSubtree(leaves, leafByLabel);
+    auto root = parseSubtree(leaves, leafByLabel, nodeByCps, cpsMap);
     expect(';');
     if (position_ != text_.size()) {
         throw ParseError("Unexpected trailing characters after semicolon");
@@ -29,7 +31,9 @@ std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode
 std::string_view text_;
 std::size_t position_ = 0;
 
-std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel) {
+std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel,
+                                                                                                            std::unordered_map<std::string, std::shared_ptr<TreeNode>>& nodeByCps,
+                                                                                                            std::unordered_map<std::string, int>& cpsMap) {
     if (position_ >= text_.size()) {
         throw ParseError("Unexpected end of input while parsing subtree");
     }
@@ -37,15 +41,27 @@ std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::sha
     char current = text_[position_];
     if (current == '(') {
         ++position_;
-        auto left = parseSubtree(leaves, leafByLabel);
+        auto left = parseSubtree(leaves, leafByLabel, nodeByCps, cpsMap);
         expect(',');
-        auto right = parseSubtree(leaves, leafByLabel);
+        auto right = parseSubtree(leaves, leafByLabel, nodeByCps, cpsMap);
         expect(')');
         auto node = std::make_shared<TreeNode>();
         node->left = left;
-        node->left->parent = node;
+        node->left->parent = node.get();
         node->right = right;
-        node->right->parent = node;
+        node->right->parent = node.get();
+        // Only set cpsHash and update cpsMap if both children are leaves
+        if (left->isLeaf && right->isLeaf) {
+            node->cpsHash = left->label < right->label ? "("+left->label+","+right->label+")" : "("+right->label+","+left->label+")";
+            auto h = node->cpsHash;
+            nodeByCps[h] = node;
+            if (cpsMap.find(h) == cpsMap.end()) {
+                cpsMap[h] = 1;
+            } else {
+                cpsMap[h] += 1;
+            }
+        }
+
         return node;
     }
 
@@ -203,47 +219,28 @@ Instance parseInput() {
         }
 
         instance.forests.reserve(instance.forestCount);
+        auto cpsMap = std::unordered_map<std::string, int>(); 
         for (std::size_t idx = 0; idx < instance.rawTrees.size(); ++idx) {
             const auto& newick = instance.rawTrees[idx];
             std::size_t forestLineNumber = instance.forestLineNumbers[idx];
             try {
                 NewickParser parser(newick);
                 auto leafByLabel = std::unordered_map<std::string, std::shared_ptr<TreeNode>>();
-                auto parsed = parser.parseTree(leafByLabel);
+                auto nodeByCps = std::unordered_map<std::string, std::shared_ptr<TreeNode>>();
+                auto parsed = parser.parseTree(leafByLabel, nodeByCps, cpsMap);
                 auto tree = parsed.first;
                 auto leaves = std::move(parsed.second);
                 validateTree(tree.get(), instance.leafCount);
-                auto forest = std::make_shared<Forest>(std::unordered_set<std::shared_ptr<TreeNode>>{tree}, leaves, leafByLabel);
+                auto forest = std::make_shared<Forest>(std::unordered_set<std::shared_ptr<TreeNode>>{tree}, leaves, leafByLabel, nodeByCps);
                 instance.forests.push_back(std::make_shared<Forest>(*forest));
             } catch (const ParseError& err) {
                 throw ParseError("Line " + std::to_string(forestLineNumber) + ": " + err.what());
             }
         }
-
+        instance.cpsMap = cpsMap;
     } catch (const ParseError& err) {
         std::cerr << "Parsing failed: " << err.what() << '\n';
         return {};
     }
     return instance;
 }
-
-// int main() {
-//     auto instance = parseInput();
-
-//     std::cout << "Parsed " << instance->trees.size() << " trees with "
-//                 << instance->leafCount << " leaves each." << '\n';
-//     if (!instance->parameters.empty()) {
-//         std::cout << "Recorded #x parameters:" << '\n';
-//         for (const auto& [key, value] : instance->parameters) {
-//             std::cout << "  " << key << " = " << value << '\n';
-//         }
-//     }
-//     if (!instance->systemValues.empty()) {
-//         std::cout << "Recorded #s fields (ignored by solver):" << '\n';
-//         for (const auto& [key, value] : instance->systemValues) {
-//             std::cout << "  " << key << " = " << value << '\n';
-//         }
-//     }
-
-//     return 1;
-// }

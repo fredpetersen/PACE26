@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <mutation_trail.h>
 #include <problem_instance.h>
 #include <tree_node.h>
 #include <forest.h>
@@ -24,17 +25,18 @@ Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be con
 class Solver {
   std::vector<std::shared_ptr<Forest>> forests_;
   int leafCount_;
+  std::unordered_map<std::string, int> cpsMap_;
 
 public:
-    inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
-    : forests_(forests), leafCount_(leafCount) {}
+    inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<std::string, int> cpsMap)
+    : forests_(forests), leafCount_(leafCount), cpsMap_(cpsMap) {}
 
 
     void printForests() const;
 
-  void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail = nullptr); //should use Forest* instead
+    void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail = nullptr); //should use Forest* instead
 
-    std::vector<std::shared_ptr<Forest>> cloneForests(std::vector<std::shared_ptr<Forest>> forests);
+    void initCpsReduction();
 
     std::shared_ptr<Forest> solve();
     std::pair<bool, std::shared_ptr<Forest>> solve(int k);

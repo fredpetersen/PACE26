@@ -10,6 +10,7 @@ struct Instance {
     bool hasCounts = false;
     int forestCount = 0;
     int leafCount = 0;
+    std::unordered_map<std::string, int> cpsMap;
 
     std::vector<std::string> rawTrees;
     std::vector<std::size_t> forestLineNumbers;

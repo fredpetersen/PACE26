@@ -4,8 +4,8 @@
 
 class TestSolver : public Solver {
 	public:
-		inline TestSolver(std::vector<std::shared_ptr<Forest>> forests, int leafCount)
-	: Solver(forests, leafCount) {}
+		inline TestSolver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<std::string, int> cpsMap)
+	: Solver(forests, leafCount, cpsMap) {}
 
 		int test_lca();
 

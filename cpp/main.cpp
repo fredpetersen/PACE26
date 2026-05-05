@@ -2,8 +2,8 @@
 #include <iostream>
 
 #include <forest.h>
-#include <two_tree_test_solver.h>
-#include <two_tree_solver.h>
+#include <test_solver.h>
+#include <solver.h>
 #include <input_reader.h>
 
 // #include "input_reader.cpp"
@@ -16,8 +16,8 @@ int main() {
     // std::cout << "# Input Parsed" << std::endl;
 
     // std::cout << "# Creating Solver" << std::endl;
-    TwoTreeSolver solver(problemInstance.forests, problemInstance.leafCount);
-    // TwoTreeTestSolver solver(problemInstance.forests, problemInstance.leafCount);
+    Solver solver(problemInstance.forests, problemInstance.leafCount, problemInstance.cpsMap);
+    // TestSolver solver(problemInstance.forests, problemInstance.leafCount, problemInstance.cpsMap);
 
     // std::cout << "# Solving" << std::endl;
     auto result = solver.solve();
