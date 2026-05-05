@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <utils.h>
 #include <mutation_trail.h>
 #include <problem_instance.h>
 #include <tree_node.h>
@@ -31,12 +32,18 @@ public:
     inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<std::string, int> cpsMap)
     : forests_(forests), leafCount_(leafCount), cpsMap_(cpsMap) {}
 
-
     void printForests() const;
 
-    void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail = nullptr); //should use Forest* instead
+    void cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail = nullptr);
 
     void initCpsReduction();
+
+    std::unordered_set<std::string> tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail = nullptr);
+
+    std::unordered_set<std::string> cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail = nullptr);
+
+    void detachByLabel(std::shared_ptr<Forest> forest, std::string label, MutationTrail* trail = nullptr);
+    void detachChild(std::shared_ptr<Forest> forest, std::shared_ptr<TreeNode> node, bool shouldContract = true, MutationTrail* trail = nullptr);
 
     std::shared_ptr<Forest> solve();
     std::pair<bool, std::shared_ptr<Forest>> solve(int k);

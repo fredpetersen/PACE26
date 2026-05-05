@@ -52,7 +52,7 @@ std::shared_ptr<TreeNode> NewickParser::parseSubtree(std::unordered_set<std::sha
         node->right->parent = node.get();
         // Only set cpsHash and update cpsMap if both children are leaves
         if (left->isLeaf && right->isLeaf) {
-            node->cpsHash = left->label < right->label ? "("+left->label+","+right->label+")" : "("+right->label+","+left->label+")";
+            node->setCps();
             auto h = node->cpsHash;
             nodeByCps[h] = node;
             if (cpsMap.find(h) == cpsMap.end()) {

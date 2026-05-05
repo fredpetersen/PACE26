@@ -123,10 +123,6 @@ void Forest::forestLocalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrai
     updateSiblingPairParent(node->parentShared(), trail);
 }
 
-void Forest::forestGlobalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
-    
-}
-
 void Forest::expandMergedSubtrees(MutationTrail* trail) {
     std::vector<std::shared_ptr<TreeNode>> mergedLeaves;
     mergedLeaves.reserve(leaves_.size());
@@ -186,10 +182,10 @@ void Forest::expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trai
     updateSiblingPairParent(node, trail);
 }
 
-void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract, MutationTrail* trail) {
+std::string Forest::detachChild(std::shared_ptr<TreeNode> child, std::unordered_map<std::string, int> cpsMap, bool shouldContract, MutationTrail* trail) {
     // std::cout << "# DC" << std::endl;
     if (child == nullptr) {
-        return;
+        return "";
     }
     auto parent = child->parentShared();
     if (parent != nullptr) {
@@ -197,7 +193,7 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract, M
         bool isRightChild = parent->right == child;
         if (!isLeftChild && !isRightChild) {
             std::cout << "# The given node does not have that child" << std::endl;
-            return;
+            return "";
         }
 
         auto inserted = roots_.insert(child).second;
@@ -247,18 +243,20 @@ void Forest::detachChild(std::shared_ptr<TreeNode> child, bool shouldContract, M
         } else if (parent->parent == nullptr && parent->left == nullptr && parent->right == nullptr) {
             contract(parent, trail);
         }
+        return cpsReduction(parent, cpsMap, trail);
     }
+    return "";
 }
 
-void Forest::detachByLabel(const std::string& label, MutationTrail* trail) {
+std::string Forest::detachByLabel(const std::string& label, std::unordered_map<std::string, int> cpsMap, MutationTrail* trail) {
     // std::cout << "# DBL" << std::endl;
     // std::cout << label << std::endl;
     auto leaf = getLeafByLabel(label);
     // std::cout << leaf << std::endl;
     if (leaf == nullptr) {
-        return;
+        return "";
     }
-    detachChild(leaf, true, trail);
+    return detachChild(leaf, cpsMap, true, trail);
 }
 
 /**
@@ -484,25 +482,67 @@ std::vector<std::shared_ptr<TreeNode>> Forest::collectPendantSubtreesBetweenLeav
         return pendantSubtrees;
     };
 
-void Forest::recursiveCpsReduction(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
-    if (trail != nullptr) {
-        auto l = node->left;
-        auto r = node->right;
-        if (l->isLeaf && r->isLeaf) {
+// This can be called on nodes that aren't common! Make sure this doesn't happen
+std::string Forest::cpsReduction(std::shared_ptr<TreeNode> node, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail) {
+    if (node != nullptr) {
+        if (node->isCpsNode()) {
+            auto l = node->left;
+            auto r = node->right;
+
             globalMergeCherry(node, trail);
+
             leaves_.erase(l);
             leaves_.erase(r);
             leaves_.insert(node);
-            nodeByCps_.erase(node->cpsHash);
-            nodeByCps_[node->parentShared()->cpsHash] = node->parentShared();
-            trail->record([this, l, r, node]() {
-                leaves_.insert(l);
-                leaves_.insert(r);
-                leaves_.erase(node);
-            });
-            recursiveCpsReduction(node->parentShared());
+
+            leafByLabel_[node->label] = node;
+            leafByLabel_.erase(l->label);
+            leafByLabel_.erase(r->label);
+
+            nodeByCps_.erase(node->label);
+
+            if (trail != nullptr) {
+                trail->record([this, l, r, node]() {
+
+                    leaves_.insert(l);
+                    leaves_.insert(r);
+                    leaves_.erase(node);
+
+                    leafByLabel_.erase(node->label);
+                    leafByLabel_[l->label] = l;
+                    leafByLabel_[r->label] = r;
+
+                    nodeByCps_[node->label] = node;
+                });
+            }
+            if (node->parent != nullptr) {
+                auto parent = node->parentShared();
+                if (parent->isCpsNode()) {
+
+                    parent->setCps();
+                    auto h = parent->cpsHash;
+
+                    nodeByCps_[h] = node;
+                    if (cpsMap.find(parent->cpsHash) == cpsMap.end()) {
+                        cpsMap[h] = 1;
+                    } else {
+                        cpsMap[h] += 1;
+                    }
+                    if (trail != nullptr) {
+                        trail->record([this, parent, h, &cpsMap]() {
+                            parent->cpsHash = "";
+                            nodeByCps_.erase(parent->cpsHash);
+
+                            cpsMap[h] -= 1;
+                        });
+                    }
+                    debug("returning " + h);
+                    return h;
+                }
+            }
         }
     }
+    return "";
 }
 
 std::string Forest::treeToNewick(const std::shared_ptr<TreeNode>& node) {
@@ -736,4 +776,8 @@ void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) 
 void Forest::setLeavesByLabel(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeavesByLabel) {
 	leafByLabel_ = newLeavesByLabel;
     rebuildSiblingPairCache();
+}
+
+void Forest::setNodesByCps(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newNodesByCps) {
+	nodeByCps_ = newNodesByCps;
 }

@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <stack>
 
 #include <problem_instance.h>
 #include <tree_node.h>
@@ -28,35 +29,95 @@ void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::share
     for (const auto& root : mainForest->getRoots()) {
         if (root != nullptr && root->isLeaf) {
             // std::cout << "# CSL" << std::endl;
-            otherForest->detachByLabel(root->label, trail);
+            otherForest->detachByLabel(root->label, cpsMap_, trail);
         }
     }
 }
 
 void Solver::initCpsReduction() {
-    auto dummyTrail = MutationTrail(); // We don't need to keep a track of the trail, since these changes are ALWAYS correct
-    auto leftChildLabels = std::vector<std::string>();
+    auto keys = std::stack<std::string>{};
+
     for (auto kv : cpsMap_) {
         if (kv.second == forests_.size()) {
-            auto str = kv.first;
-            auto comma = str.find(',');
-            auto l = str.substr(1, comma - 1);
-            leftChildLabels.push_back(l);
+            keys.push(kv.first);
         }
     }
-    // for (auto label : leftChildLabels) {
-    //     for (auto& forest : forests_) {
-    //         // Have to move the recursiveCpsReduction to the forest class, so it can update the forest stuff (like leaves_)
-    //         forest->recursiveCpsReduction(forest->getLeafByLabel(label)->parent);
-    //         auto node = forest->getLeafByLabel(label)->parent.get();
-    //         forest->recursiveCpsReduction(node, &dummyTrail);
-    //     }
-    // }
+    while (!keys.empty()) {
+        auto kCopy = std::stack(keys);
+        debug("Present Keys");
+        while (!kCopy.empty()) {
+            debug(kCopy.top());
+            kCopy.pop();
+        }
+
+        auto newKeys = cpsReductionForCpsHash(keys.top());
+        keys.pop();
+
+        debug("New Keys");
+        for (auto& key : newKeys) {
+            debug(key);
+            keys.push(key);
+        }
+    }
+
+
+    for (auto kv : cpsMap_) {
+        debug(kv.first);
+        debug(std::to_string(kv.second));
+        // Only do the reduction if the subtree is common across all forests
+        if (kv.second == forests_.size()) {
+            cpsReductionForCpsHash(kv.first);
+        }
+    }
 }
 
+std::unordered_set<std::string> Solver::tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail) {
+    if (cpsHash != "") {
+        auto val = cpsMap_[cpsHash];
+        if (val == forests_.size()) {
+            debug("cspMap has reached the criteria!");
+
+            // Removes the "used" spot on the cpsMap. Maybe not necessary/worth it?? TODO: evaluate
+            // auto& cpsMap = cpsMap_;
+            // cpsMap_.erase(cpsHash);
+            // if (trail != nullptr) {
+            //     trail->record([this, val, cpsHash, &cpsMap]() {
+            //         cpsMap_[cpsHash] = val;
+            //     });
+            // }
+            return cpsReductionForCpsHash(cpsHash, trail);
+        }
+    }
+    return {};
+}
+
+std::unordered_set<std::string> Solver::cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail) {
+    std::unordered_set<std::string> updatedHashes = {};
+    for (auto forest : forests_) {
+        auto h = forest->cpsReduction(forest->getNodeByCps(cpsHash), cpsMap_, trail);
+        if (h != "") {
+            updatedHashes.insert(h);
+            auto tmp = tryCpsReductionForHash(h, trail);
+            updatedHashes.insert(tmp.begin(), tmp.end());
+        }
+    }
+    return updatedHashes;
+}
+
+void Solver::detachByLabel(std::shared_ptr<Forest> forest, std::string label, MutationTrail* trail) {
+    auto h = forest->detachByLabel(label, cpsMap_, trail);
+    tryCpsReductionForHash(h, trail);
+}
+
+void Solver::detachChild(std::shared_ptr<Forest> forest, std::shared_ptr<TreeNode> node, bool shouldContract, MutationTrail* trail) {
+    auto h = forest->detachChild(node, cpsMap_, shouldContract, trail);
+    tryCpsReductionForHash(h, trail);
+}
 
 std::shared_ptr<Forest> Solver::solve() {
+    debug("Started Solving...");
     initCpsReduction();
+    debug("Init Reduction Complete");
     bool isSolved = false;
     std::shared_ptr<Forest> solution;
     int k = 1;
@@ -76,6 +137,7 @@ std::pair<bool, std::shared_ptr<Forest>> Solver::solve(int k) {
 }
 
 std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solve(int k, std::vector<std::shared_ptr<Forest>> forests) {
+    debug("Setting up checkpoint");
     MutationTrail trail;
     auto checkpoint = trail.checkpoint();
     auto result = solveRecursive(k, std::move(forests), trail);
@@ -92,7 +154,6 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         return {true, {nullptr}};
     }
 
-    auto f1 = forests[0];
 
     // std::cout << "# 2" << std::endl;
     // Step 1 (if there's only 1 forest left, this forest is the MAF)
@@ -100,9 +161,11 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         return {true, forests};
     }
 
+    auto f1 = forests[0];
     auto f2 = forests[1];
-    // f1->print("Forest 1");
-    // f2->print("Forest 2");
+
+    f1->print("Forest 1");
+    f2->print("Forest 2");
     // std::cout << "# 3" << std::endl;
     // Step 2 (if there are more components on the MAF we're building than k, the solution is too big (i.e. invalid))
     if (f1->getComponentCount() > k) {
@@ -142,8 +205,8 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
     // std::cout << "# 7" << std::endl;
     if (dist == -1) {
         auto checkpoint = trail.checkpoint();
-        f1->detachByLabel(lab_u, &trail);
-        f2->detachByLabel(lab_u, &trail);
+        detachByLabel(f1, lab_u, &trail);
+        detachByLabel(f2, lab_u, &trail);
         auto result = solveRecursive(k, forests, trail);
         if (result.first) {
             return result;
@@ -151,8 +214,8 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         trail.rollback(checkpoint);
 
         checkpoint = trail.checkpoint();
-        f1->detachByLabel(lab_v, &trail);
-        f2->detachByLabel(lab_v, &trail);
+        detachByLabel(f1, lab_v, &trail);
+        detachByLabel(f2, lab_v, &trail);
         result = solveRecursive(k, forests, trail);
         if (result.first) {
             return result;
@@ -175,8 +238,8 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
     // std::cout << "# 9" << std::endl;
     } else if (dist > 1) {
         auto checkpoint = trail.checkpoint();
-        f1->detachByLabel(lab_u, &trail);
-        f2->detachByLabel(lab_u, &trail);
+        detachByLabel(f1, lab_u, &trail);
+        detachByLabel(f2, lab_u, &trail);
         auto result = solveRecursive(k, forests, trail);
         if (result.first) {
             return result;
@@ -184,8 +247,8 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         trail.rollback(checkpoint);
 
         checkpoint = trail.checkpoint();
-        f1->detachByLabel(lab_v, &trail);
-        f2->detachByLabel(lab_v, &trail);
+        detachByLabel(f1, lab_v, &trail);
+        detachByLabel(f2, lab_v, &trail);
         result = solveRecursive(k, forests, trail);
         if (result.first) {
             return result;
@@ -196,10 +259,10 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         auto cloneAncestor = ancestor;
         auto newRoots = f1->collectPendantSubtreesBetweenLeaves(lab_u, lab_v, cloneAncestor);
         for (const auto& r : newRoots) {
-            f1->detachChild(r, false, &trail);
+            detachChild(f1, r, false, &trail);
         }
         f1->contractIntoCherry(lab_u, lab_v, cloneAncestor, &trail);
-        result = solveRecursive(k, forests,trail);
+        result = solveRecursive(k, forests, trail);
         if (result.first) {
             return result;
         }
