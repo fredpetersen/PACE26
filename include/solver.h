@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cctype>
 #include <iostream>
 #include <memory>
@@ -41,5 +42,18 @@ public:
     std::pair<bool, std::vector<std::shared_ptr<Forest>>> solve(int k, std::vector<std::shared_ptr<Forest>> forests);
 
 private:
+  std::shared_ptr<Forest> solveWithClusterPartitioning(std::vector<std::shared_ptr<Forest>> forests);
+  std::shared_ptr<Forest> solveWithoutClusterPartitioning(std::vector<std::shared_ptr<Forest>> forests);
+
+  bool findCommonClusterMask(const std::vector<std::shared_ptr<Forest>>& forests,
+                             std::vector<std::uint64_t>& clusterMask) const;
+
+  std::vector<std::shared_ptr<Forest>> restrictForestsToMask(const std::vector<std::shared_ptr<Forest>>& forests,
+                                                            const std::vector<std::uint64_t>& clusterMask,
+                                                            bool keepSelected) const;
+
+  std::shared_ptr<Forest> mergeSolutionForests(const std::shared_ptr<Forest>& left,
+                                               const std::shared_ptr<Forest>& right) const;
+
   std::pair<bool, std::vector<std::shared_ptr<Forest>>> solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests, MutationTrail& trail);
 };

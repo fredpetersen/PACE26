@@ -37,6 +37,172 @@ namespace {
         return it->second;
     }
 
+    std::size_t labelToIndex(const std::string& label);
+
+    std::pair<std::shared_ptr<TreeNode>, std::vector<std::uint64_t>> findSubtreeMatchingMask(
+            const std::shared_ptr<TreeNode>& node,
+            const std::vector<std::uint64_t>& targetMask,
+            std::size_t wordCount) {
+        if (node == nullptr) {
+            return {nullptr, std::vector<std::uint64_t>(wordCount, 0)};
+        }
+
+        if (node->left == nullptr && node->right == nullptr) {
+            auto mask = std::vector<std::uint64_t>(wordCount, 0);
+            auto index = labelToIndex(node->label);
+            if (index / 64 < mask.size()) {
+                mask[index / 64] |= (1ULL << (index % 64));
+            }
+            if (mask == targetMask) {
+                return {node, mask};
+            }
+            return {nullptr, mask};
+        }
+
+        auto [leftFound, leftMask] = findSubtreeMatchingMask(node->left, targetMask, wordCount);
+        auto [rightFound, rightMask] = findSubtreeMatchingMask(node->right, targetMask, wordCount);
+
+        auto mask = leftMask;
+        if (mask.size() < rightMask.size()) {
+            mask.resize(rightMask.size(), 0);
+        }
+        for (std::size_t idx = 0; idx < rightMask.size(); ++idx) {
+            mask[idx] |= rightMask[idx];
+        }
+
+        if (leftFound != nullptr) {
+            return {leftFound, mask};
+        }
+        if (rightFound != nullptr) {
+            return {rightFound, mask};
+        }
+        if (mask == targetMask) {
+            return {node, mask};
+        }
+        return {nullptr, mask};
+    }
+
+    std::shared_ptr<TreeNode> cloneWithContractedSubtree(
+            const std::shared_ptr<TreeNode>& node,
+            const TreeNode* contractNode,
+            const std::string& placeholderLabel,
+            TreeNode* parent,
+            std::unordered_set<std::shared_ptr<TreeNode>>& leaves,
+            std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel) {
+        if (node == nullptr) {
+            return nullptr;
+        }
+
+        if (node.get() == contractNode) {
+            auto placeholder = std::make_shared<TreeNode>();
+            placeholder->isLeaf = true;
+            placeholder->isMerged = false;
+            placeholder->label = placeholderLabel;
+            placeholder->parent = parent;
+            leaves.insert(placeholder);
+            leafByLabel[placeholder->label] = placeholder;
+            return placeholder;
+        }
+
+        auto clone = std::make_shared<TreeNode>();
+        clone->isLeaf = node->isLeaf;
+        clone->isMerged = node->isMerged;
+        clone->label = node->label;
+        clone->parent = parent;
+
+        if (node->left != nullptr) {
+            clone->left = cloneWithContractedSubtree(node->left, contractNode, placeholderLabel, clone.get(), leaves, leafByLabel);
+            if (clone->left != nullptr) {
+                clone->left->parent = clone;
+            }
+        }
+        if (node->right != nullptr) {
+            clone->right = cloneWithContractedSubtree(node->right, contractNode, placeholderLabel, clone.get(), leaves, leafByLabel);
+            if (clone->right != nullptr) {
+                clone->right->parent = clone;
+            }
+        }
+
+        if (node->left == nullptr && node->right == nullptr) {
+            leaves.insert(clone);
+            leafByLabel[clone->label] = clone;
+        }
+
+        return clone;
+    }
+
+    std::size_t labelToIndex(const std::string& label) {
+        std::size_t value = 0;
+        for (char c : label) {
+            value = value * 10 + static_cast<std::size_t>(c - '0');
+        }
+        return value - 1;
+    }
+
+    bool maskContains(const std::vector<std::uint64_t>& mask, std::size_t index) {
+        auto wordIndex = index / 64;
+        if (wordIndex >= mask.size()) {
+            return false;
+        }
+        auto bitIndex = index % 64;
+        return ((mask[wordIndex] >> bitIndex) & 1ULL) != 0ULL;
+    }
+
+    std::shared_ptr<TreeNode> cloneRestrictedSubtree(
+            const std::shared_ptr<TreeNode>& node,
+            const std::vector<std::uint64_t>& leafMask,
+            bool keepSelected,
+            TreeNode* parent,
+            std::unordered_set<std::shared_ptr<TreeNode>>& leaves,
+            std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel) {
+        if (node == nullptr) {
+            return nullptr;
+        }
+
+        if (node->left == nullptr && node->right == nullptr) {
+            auto index = labelToIndex(node->label);
+            bool keepLeaf = maskContains(leafMask, index) == keepSelected;
+            if (!keepLeaf) {
+                return nullptr;
+            }
+
+            auto clone = std::make_shared<TreeNode>();
+            clone->isLeaf = node->isLeaf;
+            clone->isMerged = node->isMerged;
+            clone->label = node->label;
+            clone->parent = parent;
+            leaves.insert(clone);
+            leafByLabel[clone->label] = clone;
+            return clone;
+        }
+
+        auto left = cloneRestrictedSubtree(node->left, leafMask, keepSelected, nullptr, leaves, leafByLabel);
+        auto right = cloneRestrictedSubtree(node->right, leafMask, keepSelected, nullptr, leaves, leafByLabel);
+
+        if (left == nullptr && right == nullptr) {
+            return nullptr;
+        }
+        if (left == nullptr) {
+            right->parent = parent;
+            return right;
+        }
+        if (right == nullptr) {
+            left->parent = parent;
+            return left;
+        }
+
+        auto clone = std::make_shared<TreeNode>();
+        clone->isLeaf = node->isLeaf;
+        clone->isMerged = node->isMerged;
+        clone->label = node->label;
+        clone->parent = parent;
+        clone->left = left;
+        clone->right = right;
+        clone->left->parent = clone;
+        clone->right->parent = clone;
+        return clone;
+    }
+
 }
 
 bool Forest::isSiblingPairNode(TreeNode* node) const {
@@ -563,6 +729,129 @@ std::shared_ptr<Forest> Forest::cloneForest() const {
 	return clone;
 }
 
+std::shared_ptr<Forest> Forest::cloneRestrictedForest(const std::vector<std::uint64_t>& leafMask, bool keepSelected) const {
+    auto clone = std::make_shared<Forest>();
+    std::unordered_set<std::shared_ptr<TreeNode>> newRoots;
+    std::unordered_set<std::shared_ptr<TreeNode>> newLeaves;
+    std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeafByLabel;
+
+    for (const auto& root : roots_) {
+        auto clonedRoot = cloneRestrictedSubtree(root, leafMask, keepSelected, nullptr, newLeaves, newLeafByLabel);
+        if (clonedRoot != nullptr) {
+            clonedRoot->parent = nullptr;
+            newRoots.insert(clonedRoot);
+        }
+    }
+
+    clone->roots_ = std::move(newRoots);
+    clone->leaves_ = std::move(newLeaves);
+    clone->leafByLabel_ = std::move(newLeafByLabel);
+    clone->componentCount_ = static_cast<int>(clone->roots_.size());
+    clone->rebuildSiblingPairCache();
+
+    return clone;
+}
+
+std::shared_ptr<Forest> Forest::cloneContractedForest(const std::vector<std::uint64_t>& leafMask, const std::string& placeholderLabel) const {
+    auto clone = std::make_shared<Forest>();
+    std::unordered_set<std::shared_ptr<TreeNode>> newRoots;
+    std::unordered_set<std::shared_ptr<TreeNode>> newLeaves;
+    std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeafByLabel;
+    auto wordCount = leafMask.size();
+
+    for (const auto& root : roots_) {
+        auto [contractNode, mask] = findSubtreeMatchingMask(root, leafMask, wordCount);
+        (void)mask;
+        if (contractNode == nullptr) {
+            auto clonedRoot = cloneWithContractedSubtree(root, nullptr, placeholderLabel, nullptr, newLeaves, newLeafByLabel);
+            if (clonedRoot != nullptr) {
+                clonedRoot->parent = nullptr;
+                newRoots.insert(clonedRoot);
+            }
+            continue;
+        }
+
+        auto clonedRoot = cloneWithContractedSubtree(root, contractNode.get(), placeholderLabel, nullptr, newLeaves, newLeafByLabel);
+        if (clonedRoot != nullptr) {
+            clonedRoot->parent = nullptr;
+            newRoots.insert(clonedRoot);
+        }
+    }
+
+    clone->roots_ = std::move(newRoots);
+    clone->leaves_ = std::move(newLeaves);
+    clone->leafByLabel_ = std::move(newLeafByLabel);
+    clone->componentCount_ = static_cast<int>(clone->roots_.size());
+    clone->rebuildSiblingPairCache();
+
+    return clone;
+}
+
+void Forest::mergeForest(const Forest& other) {
+    roots_.insert(other.roots_.begin(), other.roots_.end());
+    leaves_.insert(other.leaves_.begin(), other.leaves_.end());
+    leafByLabel_.insert(other.leafByLabel_.begin(), other.leafByLabel_.end());
+    componentCount_ = static_cast<int>(roots_.size());
+    rebuildSiblingPairCache();
+}
+
+void Forest::graftForestAtLeaf(const std::string& placeholderLabel,
+                          const std::shared_ptr<TreeNode>& graftRoot,
+                          const Forest& graftForest) {
+    if (graftRoot == nullptr) {
+        return;
+    }
+
+    auto placeholder = getLeafByLabel(placeholderLabel);
+    if (placeholder == nullptr) {
+        return;
+    }
+
+    auto placeholderParent = placeholder->parent;
+    if (placeholderParent != nullptr) {
+        if (placeholderParent->left.get() == placeholder.get()) {
+            placeholderParent->left = graftRoot;
+        } else if (placeholderParent->right.get() == placeholder.get()) {
+            placeholderParent->right = graftRoot;
+        }
+        graftRoot->parent = placeholderParent;
+    } else {
+        removeRoot(placeholder.get());
+        graftRoot->parent = nullptr;
+        roots_.insert(graftRoot);
+    }
+
+    auto placeholderLabelCopy = placeholder->label;
+    auto previousLeafIt = leaves_.find(placeholder);
+    if (previousLeafIt != leaves_.end()) {
+        leaves_.erase(previousLeafIt);
+    }
+    leafByLabel_.erase(placeholderLabelCopy);
+
+    std::unordered_set<TreeNode*> reachableNodes;
+    std::function<void(const std::shared_ptr<TreeNode>&)> collectReachable = [&](const std::shared_ptr<TreeNode>& node) {
+        if (node == nullptr || !reachableNodes.insert(node.get()).second) {
+            return;
+        }
+        collectReachable(node->left);
+        collectReachable(node->right);
+    };
+    collectReachable(graftRoot);
+
+    for (const auto& root : graftForest.getRoots()) {
+        if (reachableNodes.find(root.get()) == reachableNodes.end()) {
+            roots_.insert(root);
+        }
+    }
+    for (const auto& leaf : graftForest.getLeaves()) {
+        leaves_.insert(leaf);
+        leafByLabel_[leaf->label] = leaf;
+    }
+
+    componentCount_ = static_cast<int>(roots_.size());
+    rebuildSiblingPairCache();
+}
+
 void Forest::print(const std::string& name) const {
 	for (const auto& root : roots_) {
 		this->printTree(root.get(), name);
@@ -621,6 +910,10 @@ void Forest::setComponentCount(int newCount, MutationTrail* trail) {
 
 int Forest::getComponentCount() {
 	return componentCount_;
+}
+
+int Forest::getComponentCount() const {
+    return componentCount_;
 }
 
 void Forest::addRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
@@ -708,9 +1001,19 @@ void Forest::removeLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
 std::unordered_set<std::shared_ptr<TreeNode>> Forest::getRoots() {
 	return roots_;
 }
+
+const std::unordered_set<std::shared_ptr<TreeNode>>& Forest::getRoots() const {
+    return roots_;
+}
+
 std::unordered_set<std::shared_ptr<TreeNode>> Forest::getLeaves() {
 	return leaves_;
 }
+
+const std::unordered_set<std::shared_ptr<TreeNode>>& Forest::getLeaves() const {
+    return leaves_;
+}
+
 std::shared_ptr<TreeNode> Forest::getLeafByLabel(const std::string& label) const {
     return lookupLeaf(leafByLabel_, label);
 }

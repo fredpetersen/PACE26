@@ -1,5 +1,7 @@
 #include <solver.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <cctype>
 #include <iostream>
 #include <memory>
@@ -15,6 +17,80 @@
 #include <problem_instance.h>
 #include <tree_node.h>
 #include <forest.h>
+
+namespace {
+    using LeafMask = std::vector<std::uint64_t>;
+
+    struct LeafMaskHash {
+        std::size_t operator()(const LeafMask& mask) const noexcept {
+            std::size_t seed = 0;
+            for (auto word : mask) {
+                seed ^= std::hash<std::uint64_t>{}(word) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+            }
+            return seed;
+        }
+    };
+
+    using ClusterSet = std::unordered_set<LeafMask, LeafMaskHash>;
+
+    std::size_t labelToIndex(const std::string& label) {
+        std::size_t value = 0;
+        for (char c : label) {
+            value = value * 10 + static_cast<std::size_t>(c - '0');
+        }
+        return value - 1;
+    }
+
+    std::size_t countBits(const LeafMask& mask) {
+        std::size_t count = 0;
+        for (auto word : mask) {
+            count += static_cast<std::size_t>(__builtin_popcountll(word));
+        }
+        return count;
+    }
+
+    std::pair<LeafMask, std::size_t> collectClusterMasks(const std::shared_ptr<TreeNode>& node,
+                                                         std::size_t wordCount,
+                                                         ClusterSet& clusters) {
+        if (node == nullptr) {
+            return {LeafMask(wordCount, 0), 0};
+        }
+
+        if (node->left == nullptr && node->right == nullptr) {
+            LeafMask mask(wordCount, 0);
+            auto index = labelToIndex(node->label);
+            mask[index / 64] |= (1ULL << (index % 64));
+            return {std::move(mask), 1};
+        }
+
+        auto [leftMask, leftCount] = collectClusterMasks(node->left, wordCount, clusters);
+        auto [rightMask, rightCount] = collectClusterMasks(node->right, wordCount, clusters);
+
+        if (leftMask.size() < rightMask.size()) {
+            leftMask.resize(rightMask.size(), 0);
+        }
+        for (std::size_t idx = 0; idx < rightMask.size(); ++idx) {
+            leftMask[idx] |= rightMask[idx];
+        }
+
+        auto count = leftCount + rightCount;
+        if (count > 1) {
+            clusters.insert(leftMask);
+        }
+
+        return {std::move(leftMask), count};
+    }
+
+    ClusterSet collectForestClusters(const Forest& forest, std::size_t wordCount) {
+        ClusterSet clusters;
+        const auto& roots = forest.getRoots();
+        for (const auto& root : roots) {
+            collectClusterMasks(root, wordCount, clusters);
+        }
+        return clusters;
+    }
+
+}
 
 void Solver::printForests() const {
     // TODO: Rework this to work actually good
@@ -41,17 +117,7 @@ std::vector<std::shared_ptr<Forest>> Solver::cloneForests(std::vector<std::share
 }
 
 std::shared_ptr<Forest> Solver::solve() {
-    bool isSolved = false;
-    std::shared_ptr<Forest> solution;
-    int k = 1;
-    // No reason to add a looping condition on k, theres is always a trivial solution with k = nr. of leaves
-    while (!isSolved) {
-        std::cout << "# Looking for solution with size k = " << k << std::endl;
-        auto res = solve(k++);
-        isSolved = res.first;
-        solution = res.second;
-    }
-    return solution;
+    return solveWithClusterPartitioning(forests_);
 }
 
 std::pair<bool, std::shared_ptr<Forest>> Solver::solve(int k) {
@@ -67,6 +133,136 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solve(int k, std::
         trail.rollback(checkpoint);
     }
     return result;
+}
+
+std::shared_ptr<Forest> Solver::solveWithoutClusterPartitioning(std::vector<std::shared_ptr<Forest>> forests) {
+    if (forests.empty()) {
+        return nullptr;
+    }
+
+    const auto& firstForest = *forests.front();
+    auto currentLeafCount = static_cast<int>(firstForest.getLeaves().size());
+    for (int k = 1; k <= currentLeafCount; ++k) {
+        std::cout << "# Looking for solution with size k = " << k << std::endl;
+        auto result = solve(k, forests);
+        if (result.first) {
+            return result.second[0];
+        }
+    }
+
+    return nullptr;
+}
+
+bool Solver::findCommonClusterMask(const std::vector<std::shared_ptr<Forest>>& forests,
+                                   std::vector<std::uint64_t>& clusterMask) const {
+    if (forests.size() < 2) {
+        return false;
+    }
+
+    auto wordCount = (static_cast<std::size_t>(leafCount_) + 63) / 64;
+    LeafMask universeMask(wordCount, 0);
+    {
+        const auto& firstForest = *forests.front();
+        for (const auto& leaf : firstForest.getLeaves()) {
+            auto index = labelToIndex(leaf->label);
+            universeMask[index / 64] |= (1ULL << (index % 64));
+        }
+    }
+
+    auto commonClusters = collectForestClusters(*forests.front(), wordCount);
+    for (std::size_t forestIndex = 1; forestIndex < forests.size() && !commonClusters.empty(); ++forestIndex) {
+        auto forestClusters = collectForestClusters(*forests[forestIndex], wordCount);
+        for (auto it = commonClusters.begin(); it != commonClusters.end();) {
+            if (forestClusters.find(*it) == forestClusters.end()) {
+                it = commonClusters.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    LeafMask bestMask;
+    std::size_t bestSize = 0;
+    for (const auto& mask : commonClusters) {
+        if (mask == universeMask) {
+            continue;
+        }
+        auto size = countBits(mask);
+        if (size > bestSize) {
+            bestSize = size;
+            bestMask = mask;
+        }
+    }
+
+    if (bestSize <= 1) {
+        return false;
+    }
+
+    clusterMask.assign(bestMask.begin(), bestMask.end());
+    return true;
+}
+
+std::vector<std::shared_ptr<Forest>> Solver::restrictForestsToMask(const std::vector<std::shared_ptr<Forest>>& forests,
+                                                                   const std::vector<std::uint64_t>& clusterMask,
+                                                                   bool keepSelected) const {
+    std::vector<std::shared_ptr<Forest>> restricted;
+    restricted.reserve(forests.size());
+    for (const auto& forest : forests) {
+        restricted.push_back(forest->cloneRestrictedForest(clusterMask, keepSelected));
+    }
+    return restricted;
+}
+
+std::shared_ptr<Forest> Solver::solveWithClusterPartitioning(std::vector<std::shared_ptr<Forest>> forests) {
+    if (forests.empty()) {
+        return nullptr;
+    }
+
+    if (forests.size() < 2) {
+        return solveWithoutClusterPartitioning(std::move(forests));
+    }
+
+    std::vector<std::uint64_t> clusterMask;
+    if (findCommonClusterMask(forests, clusterMask)) {
+        constexpr const char* placeholderLabel = "0";
+
+        auto clusterForests = restrictForestsToMask(forests, clusterMask, true);
+        std::shared_ptr<TreeNode> clusterRootHandle = nullptr;
+        if (!clusterForests.empty() && clusterForests.front() != nullptr) {
+            const auto& clusterRoots = static_cast<const Forest&>(*clusterForests.front()).getRoots();
+            if (!clusterRoots.empty()) {
+                clusterRootHandle = *clusterRoots.begin();
+            }
+        }
+
+        auto clusterSolution = solveWithoutClusterPartitioning(std::move(clusterForests));
+        if (clusterSolution == nullptr || clusterRootHandle == nullptr) {
+            return solveWithoutClusterPartitioning(std::move(forests));
+        }
+
+        const auto& solvedClusterRoots = static_cast<const Forest&>(*clusterSolution).getRoots();
+        if (solvedClusterRoots.size() != 1) {
+            return solveWithoutClusterPartitioning(std::move(forests));
+        }
+
+        auto graftRoot = *solvedClusterRoots.begin();
+
+        auto reducedForests = std::vector<std::shared_ptr<Forest>>();
+        reducedForests.reserve(forests.size());
+        for (const auto& forest : forests) {
+            reducedForests.push_back(forest->cloneContractedForest(clusterMask, placeholderLabel));
+        }
+
+        auto reducedSolution = solveWithoutClusterPartitioning(std::move(reducedForests));
+        if (reducedSolution != nullptr && graftRoot != nullptr) {
+            reducedSolution->graftForestAtLeaf(placeholderLabel, graftRoot, *clusterSolution);
+        } else if (reducedSolution == nullptr) {
+            return solveWithoutClusterPartitioning(std::move(forests));
+        }
+        return reducedSolution;
+    }
+
+    return solveWithoutClusterPartitioning(std::move(forests));
 }
 
 std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests, MutationTrail& trail) {

@@ -388,13 +388,92 @@ int TestSolver::testGetSiblingsPairs() {
 	return 0;
 }
 
+int TestSolver::testMatchingSubtrees() {
+	std::cout << std::endl << "Testing matching subtree contraction" << std::endl;
+
+	auto forest = std::make_shared<Forest>();
+
+	auto root = std::make_shared<TreeNode>();
+	root->isLeaf = false;
+	root->label = "1";
+
+	auto matchingNode = std::make_shared<TreeNode>();
+	matchingNode->isLeaf = false;
+	matchingNode->label = "2";
+
+	auto leaf4 = std::make_shared<TreeNode>();
+	leaf4->isLeaf = true;
+	leaf4->label = "4";
+
+	auto leaf5 = std::make_shared<TreeNode>();
+	leaf5->isLeaf = true;
+	leaf5->label = "5";
+
+	auto leaf6 = std::make_shared<TreeNode>();
+	leaf6->isLeaf = true;
+	leaf6->label = "6";
+
+	auto standaloneLeaf = std::make_shared<TreeNode>();
+	standaloneLeaf->isLeaf = true;
+	standaloneLeaf->label = "7";
+
+	root->left = matchingNode;
+	root->right = leaf6;
+	matchingNode->parent = root;
+	matchingNode->left = leaf4;
+	matchingNode->right = leaf5;
+	leaf4->parent = matchingNode;
+	leaf5->parent = matchingNode;
+	leaf6->parent = root;
+
+	forest->setRoots({root, standaloneLeaf});
+	forest->setLeaves({leaf4, leaf5, leaf6, standaloneLeaf});
+	forest->setLeavesByLabel({{"4", leaf4}, {"5", leaf5}, {"6", leaf6}, {"7", standaloneLeaf}});
+	forest->setComponentCount(2);
+
+	std::vector<std::uint64_t> leafMask = {(1ULL << 3) | (1ULL << 4)};
+	auto clonedForest = forest->cloneContractedForest(leafMask, "0");
+
+	bool passed = true;
+	auto check = [&](bool condition, const std::string& message) {
+		if (!condition) {
+			std::cout << "  FAIL: " << message << std::endl;
+			passed = false;
+		}
+	};
+
+	const auto& clonedRoots = static_cast<const Forest&>(*clonedForest).getRoots();
+	check(clonedRoots.size() == 2, "expected two roots after contracting the matching subtree");
+	check(clonedForest->getComponentCount() == 2, "expected two components after contraction");
+	check(clonedForest->getLeaves().size() == 3, "expected three leaves after contraction");
+	check(clonedForest->getLeafByLabel("0") != nullptr, "placeholder leaf 0 should exist");
+	check(clonedForest->getLeafByLabel("4") == nullptr, "leaf 4 should be contracted away");
+	check(clonedForest->getLeafByLabel("5") == nullptr, "leaf 5 should be contracted away");
+	check(clonedForest->getLeafByLabel("6") != nullptr, "leaf 6 should remain present");
+	check(clonedForest->getLeafByLabel("7") != nullptr, "standalone leaf 7 should remain present");
+
+	std::unordered_set<std::string> actualNewicks;
+	for (const auto& rootHandle : clonedRoots) {
+		actualNewicks.insert(clonedForest->treeToNewick(rootHandle));
+	}
+	std::unordered_set<std::string> expectedNewicks = {"(0,6)1", "7"};
+	check(actualNewicks == expectedNewicks, "contracted forest structure did not match expectations");
+
+	std::cout << "  Actual Newick roots: {";
+	for (const auto& newick : actualNewicks) {
+		std::cout << newick << " ";
+	}
+	std::cout << "}" << std::endl;
+
+	return passed ? 0 : 1;
+}
+
 int TestSolver::test() {
 	// test_lca();
 	// test_contraction();
-	testRecursiveContraction();
+	// testRecursiveContraction();
+	return testMatchingSubtrees();
 	// test_singelton_leaf();
 	// testgetLeafByLabel();
 	// testGetSiblingsPairs();
-
-	return 0;
 }

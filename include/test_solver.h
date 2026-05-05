@@ -13,6 +13,8 @@ class TestSolver : public Solver {
 
 		int testRecursiveContraction();
 
+		int testMatchingSubtrees();
+
 		int test_singelton_leaf();
 
 		int testgetLeafByLabel();

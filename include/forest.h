@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <unordered_set>
 #include <unordered_map>
@@ -51,7 +52,7 @@ class Forest {
 	private:
 	std::unordered_set<std::shared_ptr<TreeNode>> roots_;
 	std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
-	int componentCount_;
+		int componentCount_ = 0;
 	std::unordered_map<std::string, std::shared_ptr<TreeNode>> leafByLabel_;
 	std::unordered_set<TreeNode*> siblingPairParents_;
 
@@ -61,7 +62,7 @@ class Forest {
 	void rebuildSiblingPairCache();
 
 	public:
-		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}), siblingPairParents_({}) {}
+		inline Forest() : roots_({}), leaves_({}), componentCount_(0), leafByLabel_({}), siblingPairParents_({}) {}
 
 		inline Forest(std::unordered_set<std::shared_ptr<TreeNode>> roots, std::unordered_set<std::shared_ptr<TreeNode>> leaves,
 			std::unordered_map<std::string, std::shared_ptr<TreeNode>> leafByLabel)
@@ -88,11 +89,18 @@ class Forest {
 		void printForestNewick();
 
 		std::shared_ptr<Forest> cloneForest() const;
+		std::shared_ptr<Forest> cloneRestrictedForest(const std::vector<std::uint64_t>& leafMask, bool keepSelected) const;
+		std::shared_ptr<Forest> cloneContractedForest(const std::vector<std::uint64_t>& leafMask, const std::string& placeholderLabel) const;
+		void mergeForest(const Forest& other);
+		void graftForestAtLeaf(const std::string& placeholderLabel,
+		                      const std::shared_ptr<TreeNode>& graftRoot,
+		                      const Forest& graftForest);
 		std::shared_ptr<TreeNode> cloneTree(
         const std::shared_ptr<TreeNode>& node);
 
 		void setComponentCount(int newCount, MutationTrail* trail = nullptr);
 		int getComponentCount();
+		int getComponentCount() const;
 
 		void print(const std::string& name) const;
 
@@ -106,7 +114,9 @@ class Forest {
 		void removeLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
 
 		std::unordered_set<std::shared_ptr<TreeNode>> getRoots();
+		const std::unordered_set<std::shared_ptr<TreeNode>>& getRoots() const;
 		std::unordered_set<std::shared_ptr<TreeNode>> getLeaves();
+		const std::unordered_set<std::shared_ptr<TreeNode>>& getLeaves() const;
 		std::shared_ptr<TreeNode> getLeafByLabel(const std::string& label) const;
 		SiblingPairSet getSiblingLeafPairs();
 		std::pair<int, SiblingPair> getOneSiblingPair(int startIndex = 0);
