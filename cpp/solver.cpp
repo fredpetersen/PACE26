@@ -5,6 +5,7 @@
 #include <cctype>
 #include <iostream>
 #include <memory>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -181,14 +182,25 @@ bool Solver::findCommonClusterMask(const std::vector<std::shared_ptr<Forest>>& f
         }
     }
 
+    if (leafCount_ < 4) {
+        return false;
+    }
+
     LeafMask bestMask;
     std::size_t bestSize = 0;
+    std::size_t bestDistance = std::numeric_limits<std::size_t>::max();
+    const std::size_t targetSize = static_cast<std::size_t>(leafCount_ / 2);
     for (const auto& mask : commonClusters) {
         if (mask == universeMask) {
             continue;
         }
         auto size = countBits(mask);
-        if (size > bestSize) {
+        if (size <= 2 || size >= static_cast<std::size_t>(leafCount_ - 1)) {
+            continue;
+        }
+        auto distance = size > targetSize ? size - targetSize : targetSize - size;
+        if (distance < bestDistance || (distance == bestDistance && size > bestSize)) {
+            bestDistance = distance;
             bestSize = size;
             bestMask = mask;
         }

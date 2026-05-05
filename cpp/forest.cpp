@@ -28,6 +28,20 @@ bool SiblingPairEq::operator()(const std::pair<std::shared_ptr<TreeNode>, std::s
 
 
 namespace {
+    using LeafMask = std::vector<std::uint64_t>;
+
+    struct LeafMaskHash {
+        std::size_t operator()(const LeafMask& mask) const noexcept {
+            std::size_t seed = 0;
+            for (auto word : mask) {
+                seed ^= std::hash<std::uint64_t>{}(word) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+            }
+            return seed;
+        }
+    };
+
+    using LeafMaskNodeMap = std::unordered_map<LeafMask, std::shared_ptr<TreeNode>, LeafMaskHash>;
+
     std::shared_ptr<TreeNode> lookupLeaf(const std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel,
                                          const std::string& label) {
         auto it = leafByLabel.find(label);
@@ -39,47 +53,38 @@ namespace {
 
     std::size_t labelToIndex(const std::string& label);
 
-    std::pair<std::shared_ptr<TreeNode>, std::vector<std::uint64_t>> findSubtreeMatchingMask(
+    std::pair<LeafMask, std::size_t> collectSubtreeMasks(
             const std::shared_ptr<TreeNode>& node,
-            const std::vector<std::uint64_t>& targetMask,
-            std::size_t wordCount) {
+            std::size_t wordCount,
+            LeafMaskNodeMap& subtreeIndex) {
         if (node == nullptr) {
-            return {nullptr, std::vector<std::uint64_t>(wordCount, 0)};
+            return {LeafMask(wordCount, 0), 0};
         }
 
         if (node->left == nullptr && node->right == nullptr) {
-            auto mask = std::vector<std::uint64_t>(wordCount, 0);
+            auto mask = LeafMask(wordCount, 0);
             auto index = labelToIndex(node->label);
             if (index / 64 < mask.size()) {
                 mask[index / 64] |= (1ULL << (index % 64));
             }
-            if (mask == targetMask) {
-                return {node, mask};
-            }
-            return {nullptr, mask};
+            auto indexKey = mask;
+            subtreeIndex.emplace(std::move(indexKey), node);
+            return {std::move(mask), 1};
         }
 
-        auto [leftFound, leftMask] = findSubtreeMatchingMask(node->left, targetMask, wordCount);
-        auto [rightFound, rightMask] = findSubtreeMatchingMask(node->right, targetMask, wordCount);
+        auto [leftMask, leftCount] = collectSubtreeMasks(node->left, wordCount, subtreeIndex);
+        auto [rightMask, rightCount] = collectSubtreeMasks(node->right, wordCount, subtreeIndex);
 
-        auto mask = leftMask;
-        if (mask.size() < rightMask.size()) {
-            mask.resize(rightMask.size(), 0);
+        if (leftMask.size() < rightMask.size()) {
+            leftMask.resize(rightMask.size(), 0);
         }
         for (std::size_t idx = 0; idx < rightMask.size(); ++idx) {
-            mask[idx] |= rightMask[idx];
+            leftMask[idx] |= rightMask[idx];
         }
 
-        if (leftFound != nullptr) {
-            return {leftFound, mask};
-        }
-        if (rightFound != nullptr) {
-            return {rightFound, mask};
-        }
-        if (mask == targetMask) {
-            return {node, mask};
-        }
-        return {nullptr, mask};
+        auto count = leftCount + rightCount;
+        subtreeIndex.emplace(leftMask, node);
+        return {std::move(leftMask), count};
     }
 
     std::shared_ptr<TreeNode> cloneWithContractedSubtree(
@@ -760,9 +765,11 @@ std::shared_ptr<Forest> Forest::cloneContractedForest(const std::vector<std::uin
     auto wordCount = leafMask.size();
 
     for (const auto& root : roots_) {
-        auto [contractNode, mask] = findSubtreeMatchingMask(root, leafMask, wordCount);
-        (void)mask;
-        if (contractNode == nullptr) {
+        LeafMaskNodeMap subtreeIndex;
+        collectSubtreeMasks(root, wordCount, subtreeIndex);
+
+        auto contractNodeIt = subtreeIndex.find(leafMask);
+        if (contractNodeIt == subtreeIndex.end()) {
             auto clonedRoot = cloneWithContractedSubtree(root, nullptr, placeholderLabel, nullptr, newLeaves, newLeafByLabel);
             if (clonedRoot != nullptr) {
                 clonedRoot->parent = nullptr;
@@ -771,7 +778,7 @@ std::shared_ptr<Forest> Forest::cloneContractedForest(const std::vector<std::uin
             continue;
         }
 
-        auto clonedRoot = cloneWithContractedSubtree(root, contractNode.get(), placeholderLabel, nullptr, newLeaves, newLeafByLabel);
+        auto clonedRoot = cloneWithContractedSubtree(root, contractNodeIt->second.get(), placeholderLabel, nullptr, newLeaves, newLeafByLabel);
         if (clonedRoot != nullptr) {
             clonedRoot->parent = nullptr;
             newRoots.insert(clonedRoot);
