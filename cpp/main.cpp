@@ -22,7 +22,7 @@ int main() {
     // std::cout << "# Solving" << std::endl;
     auto result = solver.solve();
     // int result = solver.test();
-    
+
     // std::cout << "# Solution:" << std::endl;
     result->printForestNewick();
     return 0;
