@@ -171,7 +171,7 @@ void Forest::expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trai
     updateSiblingPairParent(node, trail);
 }
 
-std::string Forest::detachChild(std::shared_ptr<TreeNode> child, std::unordered_map<std::string, int> cpsMap, bool shouldContract, MutationTrail* trail) {
+std::string Forest::detachChild(std::shared_ptr<TreeNode> child, std::unordered_map<std::string, int>& cpsMap, bool shouldContract, MutationTrail* trail) {
     // std::cout << "# DC" << std::endl;
     if (child == nullptr) {
         return "";
@@ -237,7 +237,7 @@ std::string Forest::detachChild(std::shared_ptr<TreeNode> child, std::unordered_
     return "";
 }
 
-std::string Forest::detachByLabel(const std::string& label, std::unordered_map<std::string, int> cpsMap, MutationTrail* trail) {
+std::string Forest::detachByLabel(const std::string& label, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail) {
     // std::cout << "# DBL" << std::endl;
     // std::cout << label << std::endl;
     auto leaf = getLeafByLabel(label);

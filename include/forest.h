@@ -51,8 +51,8 @@ class Forest {
 		void expandMergedSubtrees(MutationTrail* trail = nullptr);
 		void expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
 
-		std::string detachChild(std::shared_ptr<TreeNode> child, std::unordered_map<std::string, int> cpsMap, bool shouldContract = true, MutationTrail* trail = nullptr);
-		std::string detachByLabel(const std::string& label, std::unordered_map<std::string, int> cpsMap, MutationTrail* trail = nullptr);
+		std::string detachChild(std::shared_ptr<TreeNode> child, std::unordered_map<std::string, int>& cpsMap, bool shouldContract = true, MutationTrail* trail = nullptr);
+		std::string detachByLabel(const std::string& label, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail = nullptr);
 		void contract(std::shared_ptr<TreeNode> v, MutationTrail* trail = nullptr);
 		void contractIntoCherry(const std::string& lab_u, const std::string& lab_v, std::shared_ptr<TreeNode> ancestor, MutationTrail* trail = nullptr);
 
