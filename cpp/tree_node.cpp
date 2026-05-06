@@ -11,10 +11,11 @@ void TreeNode::setCps() {
 }
 
 bool TreeNode::isCpsNode() {
-    if (left == nullptr || right == nullptr) {
-        return false;
-    }
-    return left->isLeaf && right->isLeaf;
+    return left != nullptr &&
+        right != nullptr &&
+        isMerged == false &&
+        left->isLeaf == true &&
+        right->isLeaf == true;
 }
 
 std::shared_ptr<TreeNode> TreeNode::parentShared() const {
@@ -30,7 +31,7 @@ std::shared_ptr<TreeNode> TreeNode::self() {
 This function pretends that the parent of 2 leaves is a leaf, which constitutes a local level merge. This is done in a way that doesn't remove information, since
 it will have to be un-merged later.
 */
-void localMergeCherry(std::shared_ptr<TreeNode> node) {
+void localMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
     // if (node == nullptr) {return;}
     auto l = node->left;
     auto r = node->right;
@@ -39,9 +40,21 @@ void localMergeCherry(std::shared_ptr<TreeNode> node) {
     auto lab_r = r->label;
 
     if (l->isLeaf && r->isLeaf) {
+        auto oldLabel = node->label;
+        auto oldIsLeaf = node->isLeaf;
+        auto oldIsMerged = node->isMerged;
+
         node->label = lab_l < lab_r ? "("+lab_l+","+lab_r+")" : "("+lab_r+","+lab_l+")"; // Make sure that the order will be the same for all instances of the sibling pair
         node->isLeaf = true;
         node->isMerged = true;
+
+        if (trail != nullptr) {
+            trail->record([node, oldLabel, oldIsLeaf, oldIsMerged]() {
+                node->label = oldLabel;
+                node->isLeaf = oldIsLeaf;
+                node->isMerged = oldIsMerged;
+            });
+        }
     } else {
         std::cout << "Left or Right node not leaf" << std::endl;
     }

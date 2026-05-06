@@ -18,17 +18,16 @@
 #include <forest.h>
 
 void Solver::printForests() const {
-    // TODO: Rework this to work actually good
-    // forest1_->print("Forest 1");
-    // forest2_->print("Forest 2");
-    std::cout << "not implemented, printForests()" << std::endl;
+    int i = 1;
+    for (auto f : forests_) {
+        f->print("Forest " + i++);
+    }
 }
 
 
 void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail) {
     for (const auto& root : mainForest->getRoots()) {
         if (root != nullptr && root->isLeaf) {
-            // std::cout << "# CSL" << std::endl;
             otherForest->detachByLabel(root->label, cpsMap_, trail);
         }
     }
@@ -36,37 +35,20 @@ void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::share
 
 void Solver::initCpsReduction() {
     auto keys = std::stack<std::string>{};
-
     for (auto kv : cpsMap_) {
+        // debug(kv.first + ", " + std::to_string(kv.second));
         if (kv.second == forests_.size()) {
             keys.push(kv.first);
         }
     }
     while (!keys.empty()) {
-        auto kCopy = std::stack(keys);
-        debug("Present Keys");
-        while (!kCopy.empty()) {
-            debug(kCopy.top());
-            kCopy.pop();
-        }
-
-        auto newKeys = cpsReductionForCpsHash(keys.top());
+        auto newKeys = tryCpsReductionForHash(keys.top());
         keys.pop();
 
-        debug("New Keys");
+        // debug("New Keys");
         for (auto& key : newKeys) {
-            debug(key);
+            // debug(key);
             keys.push(key);
-        }
-    }
-
-
-    for (auto kv : cpsMap_) {
-        debug(kv.first);
-        debug(std::to_string(kv.second));
-        // Only do the reduction if the subtree is common across all forests
-        if (kv.second == forests_.size()) {
-            cpsReductionForCpsHash(kv.first);
         }
     }
 }
@@ -75,16 +57,7 @@ std::unordered_set<std::string> Solver::tryCpsReductionForHash(std::string cpsHa
     if (cpsHash != "") {
         auto val = cpsMap_[cpsHash];
         if (val == forests_.size()) {
-            debug("cspMap has reached the criteria!");
-
-            // Removes the "used" spot on the cpsMap. Maybe not necessary/worth it?? TODO: evaluate
-            // auto& cpsMap = cpsMap_;
-            // cpsMap_.erase(cpsHash);
-            // if (trail != nullptr) {
-            //     trail->record([this, val, cpsHash, &cpsMap]() {
-            //         cpsMap_[cpsHash] = val;
-            //     });
-            // }
+            // debug(cpsHash + " has reached the criteria!");
             return cpsReductionForCpsHash(cpsHash, trail);
         }
     }
@@ -92,6 +65,7 @@ std::unordered_set<std::string> Solver::tryCpsReductionForHash(std::string cpsHa
 }
 
 std::unordered_set<std::string> Solver::cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail) {
+    // debug("Trying to reduce " + cpsHash);
     std::unordered_set<std::string> updatedHashes = {};
     for (auto forest : forests_) {
         auto h = forest->cpsReduction(forest->getNodeByCps(cpsHash), cpsMap_, trail);
@@ -137,7 +111,7 @@ std::pair<bool, std::shared_ptr<Forest>> Solver::solve(int k) {
 }
 
 std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solve(int k, std::vector<std::shared_ptr<Forest>> forests) {
-    debug("Setting up checkpoint");
+    //debug("Setting up checkpoint");
     MutationTrail trail;
     auto checkpoint = trail.checkpoint();
     auto result = solveRecursive(k, std::move(forests), trail);
@@ -149,13 +123,11 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solve(int k, std::
 
 std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests,
                                                                             MutationTrail& trail) {
-    // std::cout << "# 1" << std::endl;    
     if (forests.size() < 1) {
         return {true, {nullptr}};
     }
 
-
-    // std::cout << "# 2" << std::endl;
+    debug("1");
     // Step 1 (if there's only 1 forest left, this forest is the MAF)
     if (forests.size() == 1) {
         return {true, forests};
@@ -164,23 +136,24 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
     auto f1 = forests[0];
     auto f2 = forests[1];
 
-    f1->print("Forest 1");
-    f2->print("Forest 2");
-    // std::cout << "# 3" << std::endl;
+    // f1->print("Forest 1");
+    // f2->print("Forest 2");
+
+    debug("2");
     // Step 2 (if there are more components on the MAF we're building than k, the solution is too big (i.e. invalid))
     if (f1->getComponentCount() > k) {
         return {false, {nullptr}};
     }
 
-    // std::cout << "# 4" << std::endl;
+    debug("3");
     // Step 3 (clean the single vertex trees)
     cleanSingletonLeaves(f1, f2, &trail);
     cleanSingletonLeaves(f2, f1, &trail);
 
-    // std::cout << "# 5" << std::endl;
+    debug("4");
     // Step 4 (try to get a sibling pair in F2. If it can't be done, move on to solving F3)
     auto [idx, siblingPair] = f2->getOneSiblingPair();
-    // std::cout << siblingPair.first << ", " << siblingPair.second << std::endl;
+    // debug(siblingPair.first->label + ", " + siblingPair.second->label);
     if (idx == -1) {
         auto checkpoint = trail.checkpoint();
         f1->expandMergedSubtrees(&trail);
@@ -196,14 +169,15 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         return {false, {nullptr}};
     }
 
-    // std::cout << "# 6" << std::endl;
+    debug("5");
     // Step 5
     auto lab_u = siblingPair.first->label;
     auto lab_v = siblingPair.second->label;
     auto [ancestor, dist] = f1->lca(lab_u, lab_v);
 
-    // std::cout << "# 7" << std::endl;
+    debug("6");
     if (dist == -1) {
+        debug("6.1");
         auto checkpoint = trail.checkpoint();
         detachByLabel(f1, lab_u, &trail);
         detachByLabel(f2, lab_u, &trail);
@@ -213,6 +187,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         }
         trail.rollback(checkpoint);
 
+        debug("6.2");
         checkpoint = trail.checkpoint();
         detachByLabel(f1, lab_v, &trail);
         detachByLabel(f2, lab_v, &trail);
@@ -221,7 +196,8 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
             return result;
         }
         trail.rollback(checkpoint);
-    // std::cout << "# 8" << std::endl;
+
+    debug("7");
     } else if (dist == 1) {
         auto checkpoint = trail.checkpoint();
         auto leaf = f1->getLeafByLabel(lab_u);
@@ -235,8 +211,10 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
             }
         }
         trail.rollback(checkpoint);
-    // std::cout << "# 9" << std::endl;
+
+    debug("8");
     } else if (dist > 1) {
+        debug("8.1");
         auto checkpoint = trail.checkpoint();
         detachByLabel(f1, lab_u, &trail);
         detachByLabel(f2, lab_u, &trail);
@@ -246,6 +224,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         }
         trail.rollback(checkpoint);
 
+        debug("8.2");
         checkpoint = trail.checkpoint();
         detachByLabel(f1, lab_v, &trail);
         detachByLabel(f2, lab_v, &trail);
@@ -255,6 +234,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         }
         trail.rollback(checkpoint);
 
+        debug("8.3");
         checkpoint = trail.checkpoint();
         auto cloneAncestor = ancestor;
         auto newRoots = f1->collectPendantSubtreesBetweenLeaves(lab_u, lab_v, cloneAncestor);

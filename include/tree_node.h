@@ -24,5 +24,5 @@ struct TreeNode : std::enable_shared_from_this<TreeNode> {
     std::shared_ptr<TreeNode> self();
 };
 
-void localMergeCherry(std::shared_ptr<TreeNode> node);
+void localMergeCherry(std::shared_ptr<TreeNode> node,  MutationTrail* trail = nullptr);
 void globalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);

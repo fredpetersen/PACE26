@@ -1,5 +1,9 @@
 #include <utils.h>
 
+bool doDebug = false;
+
 void debug(std::string msg) {
-    std::cout << "# " << msg << std::endl;
+    if (doDebug) {
+        std::cout << "# " << msg << std::endl;
+    }
 }

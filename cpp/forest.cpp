@@ -102,21 +102,10 @@ void Forest::forestLocalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrai
         return;
     }
 
-    auto oldLabel = node->label;
-    auto oldIsLeaf = node->isLeaf;
-    auto oldIsMerged = node->isMerged;
-
     removeLeaf(l, trail);
     removeLeaf(r, trail);
 
-    localMergeCherry(node);
-    if (trail != nullptr) {
-        trail->record([node, oldLabel, oldIsLeaf, oldIsMerged]() {
-            node->label = oldLabel;
-            node->isLeaf = oldIsLeaf;
-            node->isMerged = oldIsMerged;
-        });
-    }
+    localMergeCherry(node, trail);
 
     addLeaf(node, trail);
     updateSiblingPairParent(node, trail);
@@ -501,6 +490,9 @@ std::string Forest::cpsReduction(std::shared_ptr<TreeNode> node, std::unordered_
 
             nodeByCps_.erase(node->label);
 
+            updateSiblingPairParent(node, trail);
+            updateSiblingPairParent(node->parentShared(), trail);
+
             if (trail != nullptr) {
                 trail->record([this, l, r, node]() {
 
@@ -522,7 +514,7 @@ std::string Forest::cpsReduction(std::shared_ptr<TreeNode> node, std::unordered_
                     parent->setCps();
                     auto h = parent->cpsHash;
 
-                    nodeByCps_[h] = node;
+                    nodeByCps_[h] = parent;
                     if (cpsMap.find(parent->cpsHash) == cpsMap.end()) {
                         cpsMap[h] = 1;
                     } else {
@@ -536,7 +528,7 @@ std::string Forest::cpsReduction(std::shared_ptr<TreeNode> node, std::unordered_
                             cpsMap[h] -= 1;
                         });
                     }
-                    debug("returning " + h);
+                    // debug("returning " + h);
                     return h;
                 }
             }
@@ -606,7 +598,7 @@ void Forest::printForestNewick() {
 
 void Forest::printCps() const {
     for (const auto& kv : nodeByCps_) {
-        std::cout << "# " << kv.first << std::endl;
+        std::cout << "# " << kv.first << " -> " << kv.second << std::endl;
     }
 }
 
@@ -752,27 +744,32 @@ std::unordered_set<
  *
  * It runs in O(n) time, but is likely faster in practice than getSiblingLeafPairs() since it can return early as soon as it finds a sibling pair.
  */
+// TODO: we are getting stale/bad values in siblingPairParents_ for some reason 
 std::pair<int, Forest::SiblingPair> Forest::getOneSiblingPair(int startIndex) {
     if (siblingPairParents_.empty()) {
         return {-1, {nullptr, nullptr}};
     }
 
-    (void)startIndex;
-    auto it = siblingPairParents_.begin();
-    auto parent = *it;
-    if (parent == nullptr || parent->left == nullptr || parent->right == nullptr) {
-        return {-1, {nullptr, nullptr}};
+    for (auto it = siblingPairParents_.begin(); it != siblingPairParents_.end(); ++it) {
+        auto parent = *it;
+        if (parent != nullptr && parent->left != nullptr && parent->right != nullptr) {
+            return {0, {parent->left, parent->right}};
+        }
     }
-    return {0, {parent->left, parent->right}};
+
+    return {-1, {nullptr, nullptr}};
 }
+
 void Forest::setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots) {
 	roots_ = newRoots;
     rebuildSiblingPairCache();
 }
+
 void Forest::setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves) {
 	leaves_ = newLeaves;
     rebuildSiblingPairCache();
 }
+
 void Forest::setLeavesByLabel(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeavesByLabel) {
 	leafByLabel_ = newLeavesByLabel;
     rebuildSiblingPairCache();
