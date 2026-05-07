@@ -83,8 +83,8 @@ class Forest {
 		void removeRoot(TreeNode* node, MutationTrail* trail = nullptr);
 		void removeLeaf(TreeNode* node, MutationTrail* trail = nullptr);
 
-		std::unordered_set<TreeNode*> getRoots();
-		std::unordered_set<TreeNode*> getLeaves();
+		const std::unordered_set<TreeNode*>& getRoots() const;
+		const std::unordered_set<TreeNode*>& getLeaves() const;
 
 		TreeNode* getLeafByLabel(const std::string& label) const;
 		TreeNode* getNodeByCps(uint64_t hash) const;

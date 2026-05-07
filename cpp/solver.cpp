@@ -36,7 +36,7 @@ uint64_t hashNode(const TreeNode* n) {
 // not semantically meaningful).
 uint64_t hashForest(const Forest& f) {
     uint64_t acc = 0;
-    for (auto* r : const_cast<Forest&>(f).getRoots()) {
+    for (auto* r : f.getRoots()) {
         acc += hashNode(r);
     }
     return acc;
@@ -64,10 +64,17 @@ void Solver::printForests() const {
 
 
 void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::shared_ptr<Forest> otherForest, MutationTrail* trail) {
+    // Snapshot the singleton root pointers up-front: detachByLabel below can
+    // trigger cpsReduction which mutates mainForest->roots_, invalidating any
+    // iterator we might hold over it.
+    std::vector<TreeNode*> singletons;
     for (const auto& root : mainForest->getRoots()) {
         if (root != nullptr && root->isLeaf) {
-            otherForest->detachByLabel(root->label, cpsMap_, trail);
+            singletons.push_back(root);
         }
+    }
+    for (auto* root : singletons) {
+        otherForest->detachByLabel(root->label, cpsMap_, trail);
     }
 }
 
@@ -134,18 +141,18 @@ std::pair<bool, std::shared_ptr<Forest>> Solver::solve(int k) {
     return {res.first, res.second[0]};
 }
 
-std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solve(int k, std::vector<std::shared_ptr<Forest>> forests) {
+std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solve(int k, const std::vector<std::shared_ptr<Forest>>& forests) {
     //debug("Setting up checkpoint");
     MutationTrail trail;
     auto checkpoint = trail.checkpoint();
-    auto result = solveRecursive(k, std::move(forests), trail);
+    auto result = solveRecursive(k, forests, trail);
     if (!result.first) {
         trail.rollback(checkpoint);
     }
     return result;
 }
 
-std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests,
+std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int k, const std::vector<std::shared_ptr<Forest>>& forests,
                                                                             MutationTrail& trail) {
     if (forests.size() < 1) {
         return {true, {nullptr}};
@@ -201,7 +208,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
 
         auto nextForests = forests;
         nextForests.erase(nextForests.begin() + 1);
-        auto result = solveRecursive(k, std::move(nextForests), trail);
+        auto result = solveRecursive(k, nextForests, trail);
         if (result.first) {
             return result;
         }

@@ -51,8 +51,8 @@ public:
 
     std::shared_ptr<Forest> solve();
     std::pair<bool, std::shared_ptr<Forest>> solve(int k);
-    std::pair<bool, std::vector<std::shared_ptr<Forest>>> solve(int k, std::vector<std::shared_ptr<Forest>> forests);
+    std::pair<bool, std::vector<std::shared_ptr<Forest>>> solve(int k, const std::vector<std::shared_ptr<Forest>>& forests);
 
 private:
-  std::pair<bool, std::vector<std::shared_ptr<Forest>>> solveRecursive(int k, std::vector<std::shared_ptr<Forest>> forests, MutationTrail& trail);
+  std::pair<bool, std::vector<std::shared_ptr<Forest>>> solveRecursive(int k, const std::vector<std::shared_ptr<Forest>>& forests, MutationTrail& trail);
 };

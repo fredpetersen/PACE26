@@ -715,10 +715,10 @@ void Forest::removeLeaf(TreeNode* node, MutationTrail* trail) {
     updateSiblingPairParent(node->parent, trail);
 }
 
-std::unordered_set<TreeNode*> Forest::getRoots() {
+const std::unordered_set<TreeNode*>& Forest::getRoots() const {
 	return roots_;
 }
-std::unordered_set<TreeNode*> Forest::getLeaves() {
+const std::unordered_set<TreeNode*>& Forest::getLeaves() const {
 	return leaves_;
 }
 TreeNode* Forest::getLeafByLabel(const std::string& label) const {
