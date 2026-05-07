@@ -1,9 +1,7 @@
 #include <utils.h>
 
-bool doDebug = false;
-
-void debug(std::string msg) {
-    if (doDebug) {
-        std::cout << "# " << msg << std::endl;
-    }
+#if DEBUG_LOG
+void debug_impl(const std::string& msg) {
+    std::cout << "# " << msg << std::endl;
 }
+#endif

@@ -744,7 +744,7 @@ std::unordered_set<
  *
  * It runs in O(n) time, but is likely faster in practice than getSiblingLeafPairs() since it can return early as soon as it finds a sibling pair.
  */
-// TODO: we are getting stale/bad values in siblingPairParents_ for some reason 
+// TODO: we are getting stale/bad values in siblingPairParents_ for some reason
 std::pair<int, Forest::SiblingPair> Forest::getOneSiblingPair(int startIndex) {
     if (siblingPairParents_.empty()) {
         return {-1, {nullptr, nullptr}};
