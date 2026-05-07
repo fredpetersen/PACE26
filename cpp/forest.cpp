@@ -27,15 +27,14 @@ bool SiblingPairEq::operator()(const std::pair<TreeNode*, TreeNode*>& a,
 
 
 namespace {
-    TreeNode* lookupDict(const std::unordered_map<std::string, TreeNode*>& leafByLabel,
-                                         const std::string& label) {
-        auto it = leafByLabel.find(label);
-        if (it == leafByLabel.end()) {
+    template <typename Map, typename Key>
+    TreeNode* lookupDict(const Map& m, const Key& k) {
+        auto it = m.find(k);
+        if (it == m.end()) {
             return nullptr;
         }
         return it->second;
     }
-
 }
 
 bool Forest::isSiblingPairNode(TreeNode* node) const {
@@ -176,9 +175,9 @@ void Forest::expandRecursive(TreeNode* node, MutationTrail* trail) {
     updateSiblingPairParent(node, trail);
 }
 
-std::string Forest::detachChild(TreeNode* child, std::unordered_map<std::string, int>& cpsMap, bool shouldContract, MutationTrail* trail) {
+uint64_t Forest::detachChild(TreeNode* child, std::unordered_map<uint64_t, int>& cpsMap, bool shouldContract, MutationTrail* trail) {
     if (child == nullptr) {
-        return "";
+        return 0;
     }
     auto parent = child->parent;
     if (parent != nullptr) {
@@ -186,7 +185,7 @@ std::string Forest::detachChild(TreeNode* child, std::unordered_map<std::string,
         bool isRightChild = parent->right == child;
         if (!isLeftChild && !isRightChild) {
             std::cout << "# The given node does not have that child" << std::endl;
-            return "";
+            return 0;
         }
 
         auto inserted = roots_.insert(child).second;
@@ -248,13 +247,13 @@ std::string Forest::detachChild(TreeNode* child, std::unordered_map<std::string,
         }
         return cpsReduction(parent, cpsMap, trail);
     }
-    return "";
+    return 0;
 }
 
-std::string Forest::detachByLabel(const std::string& label, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail) {
+uint64_t Forest::detachByLabel(const std::string& label, std::unordered_map<uint64_t, int>& cpsMap, MutationTrail* trail) {
     auto leaf = getLeafByLabel(label);
     if (leaf == nullptr) {
-        return "";
+        return 0;
     }
     return detachChild(leaf, cpsMap, true, trail);
 }
@@ -473,7 +472,7 @@ std::vector<TreeNode*> Forest::collectPendantSubtreesBetweenLeaves(const std::st
         return pendantSubtrees;
     };
 
-std::string Forest::cpsReduction(TreeNode* node, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail) {
+std::uint64_t Forest::cpsReduction(TreeNode* node, std::unordered_map<uint64_t, int>& cpsMap, MutationTrail* trail) {
     if (node != nullptr) {
         if (node->isCpsNode()) {
             auto l = node->left;
@@ -489,7 +488,7 @@ std::string Forest::cpsReduction(TreeNode* node, std::unordered_map<std::string,
             leafByLabel_.erase(l->label);
             leafByLabel_.erase(r->label);
 
-            nodeByCps_.erase(node->label);
+            nodeByCps_.erase(node->cpsHash);
 
             updateSiblingPairParent(node, trail);
             updateSiblingPairParent(node->parent, trail);
@@ -518,7 +517,7 @@ std::string Forest::cpsReduction(TreeNode* node, std::unordered_map<std::string,
                     }
                     if (trail != nullptr) {
                         trail->record([this, parent, h, &cpsMap]() {
-                            parent->cpsHash = "";
+                            parent->cpsHash = 0;
                             nodeByCps_.erase(parent->cpsHash);
 
                             cpsMap[h] -= 1;
@@ -529,7 +528,7 @@ std::string Forest::cpsReduction(TreeNode* node, std::unordered_map<std::string,
             }
         }
     }
-    return "";
+    return 0;
 }
 
 std::string Forest::treeToNewick(const TreeNode* node) {
@@ -726,8 +725,8 @@ TreeNode* Forest::getLeafByLabel(const std::string& label) const {
     return lookupDict(leafByLabel_, label);
 }
 
-TreeNode* Forest::getNodeByCps(const std::string& label) const {
-    return lookupDict(nodeByCps_, label);
+TreeNode* Forest::getNodeByCps(uint64_t hash) const {
+    return lookupDict(nodeByCps_, hash);
 }
 
 std::unordered_set<
@@ -773,6 +772,6 @@ void Forest::setLeavesByLabel(std::unordered_map<std::string, TreeNode*> newLeav
     rebuildSiblingPairCache();
 }
 
-void Forest::setNodesByCps(std::unordered_map<std::string, TreeNode*> newNodesByCps) {
+void Forest::setNodesByCps(std::unordered_map<uint64_t, TreeNode*> newNodesByCps) {
 	nodeByCps_ = std::move(newNodesByCps);
 }

@@ -4,7 +4,7 @@
 
 void TreeNode::setCps() {
     if (isCpsNode()) {
-        cpsHash = left->label < right->label ? "("+left->label+","+right->label+")" : "("+right->label+","+left->label+")";
+        cpsHash = computeCpsHash(left->label, right->label);
     }
 }
 

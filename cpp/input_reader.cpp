@@ -17,8 +17,8 @@
 #include <forest.h>
 
 std::pair<TreeNode*, std::unordered_set<TreeNode*>> NewickParser::parseTree(std::unordered_map<std::string, TreeNode*>& leafByLabel,
-                                                                            std::unordered_map<std::string, TreeNode*>& nodeByCps,
-                                                                            std::unordered_map<std::string, int>& cpsMap) {
+                                                                            std::unordered_map<uint64_t, TreeNode*>& nodeByCps,
+                                                                            std::unordered_map<uint64_t, int>& cpsMap) {
     std::unordered_set<TreeNode*> leaves;
     auto root = parseSubtree(leaves, leafByLabel, nodeByCps, cpsMap);
     expect(';');
@@ -34,8 +34,8 @@ TreeNode* NewickParser::allocNode() {
 }
 
 TreeNode* NewickParser::parseSubtree(std::unordered_set<TreeNode*>& leaves, std::unordered_map<std::string, TreeNode*>& leafByLabel,
-                                     std::unordered_map<std::string, TreeNode*>& nodeByCps,
-                                     std::unordered_map<std::string, int>& cpsMap) {
+                                     std::unordered_map<uint64_t, TreeNode*>& nodeByCps,
+                                     std::unordered_map<uint64_t, int>& cpsMap) {
     if (position_ >= text_.size()) {
         throw ParseError("Unexpected end of input while parsing subtree");
     }
@@ -220,14 +220,14 @@ Instance parseInput() {
         }
 
         instance.forests.reserve(instance.forestCount);
-        auto cpsMap = std::unordered_map<std::string, int>();
+        auto cpsMap = std::unordered_map<uint64_t, int>();
         for (std::size_t idx = 0; idx < instance.rawTrees.size(); ++idx) {
             const auto& newick = instance.rawTrees[idx];
             std::size_t forestLineNumber = instance.forestLineNumbers[idx];
             try {
                 NewickParser parser(newick, instance.nodeArena);
                 auto leafByLabel = std::unordered_map<std::string, TreeNode*>();
-                auto nodeByCps = std::unordered_map<std::string, TreeNode*>();
+                auto nodeByCps = std::unordered_map<uint64_t, TreeNode*>();
                 auto parsed = parser.parseTree(leafByLabel, nodeByCps, cpsMap);
                 auto tree = parsed.first;
                 auto leaves = std::move(parsed.second);

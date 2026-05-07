@@ -77,10 +77,10 @@ void MutationTrail::apply(UndoEntry& e) {
             e.forest->leafByLabel_.erase(e.str_aux);
             break;
         case UndoOp::ForestNodeByCpsSet:
-            e.forest->nodeByCps_[std::move(e.str_aux)] = e.t_aux;
+            e.forest->nodeByCps_[e.u64_aux] = e.t_aux;
             break;
         case UndoOp::ForestNodeByCpsErase:
-            e.forest->nodeByCps_.erase(e.str_aux);
+            e.forest->nodeByCps_.erase(e.u64_aux);
             break;
         case UndoOp::ForestComponentDelta:
             e.forest->componentCount_ += e.int_aux;
@@ -90,7 +90,7 @@ void MutationTrail::apply(UndoEntry& e) {
             break;
 
         case UndoOp::CpsMapDelta:
-            (*e.cpsMapPtr)[e.str_aux] += e.int_aux;
+            (*e.cpsMapPtr)[e.u64_aux] += e.int_aux;
             break;
 
         case UndoOp::CpsReductionRestore: {
@@ -106,7 +106,7 @@ void MutationTrail::apply(UndoEntry& e) {
             e.forest->leafByLabel_[l->label] = l;
             e.forest->leafByLabel_[r->label] = r;
 
-            e.forest->nodeByCps_[node->label] = node;
+            e.forest->nodeByCps_[node->cpsHash] = node;
             break;
         }
     }

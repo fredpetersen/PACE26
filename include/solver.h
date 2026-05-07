@@ -26,10 +26,10 @@ Thus they are sensitive to the order of the pair, as (u,v) and (v,u) will be con
 class Solver {
   std::vector<std::shared_ptr<Forest>> forests_;
   int leafCount_;
-  std::unordered_map<std::string, int> cpsMap_;
+  std::unordered_map<uint64_t, int> cpsMap_;
 
 public:
-    inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<std::string, int> cpsMap)
+    inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<uint64_t, int> cpsMap)
     : forests_(forests), leafCount_(leafCount), cpsMap_(cpsMap) {}
 
     void printForests() const;
@@ -38,9 +38,9 @@ public:
 
     void initCpsReduction();
 
-    void tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail = nullptr);
+    void tryCpsReductionForHash(uint64_t cpsHash, MutationTrail* trail = nullptr);
 
-    void cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail = nullptr);
+    void cpsReductionForCpsHash(uint64_t cpsHash, MutationTrail* trail = nullptr);
 
     void detachByLabel(std::shared_ptr<Forest> forest, std::string label, MutationTrail* trail = nullptr);
     void detachChild(std::shared_ptr<Forest> forest, TreeNode* node, bool shouldContract = true, MutationTrail* trail = nullptr);

@@ -34,9 +34,8 @@ void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::share
 }
 
 void Solver::initCpsReduction() {
-    auto keys = std::stack<std::string>{};
+    auto keys = std::stack<uint64_t>{};
     for (auto kv : cpsMap_) {
-        // debug(kv.first + ", " + std::to_string(kv.second));
         if (kv.second == forests_.size()) { // TODO: is it forests_.size() - solvedForests
             keys.push(kv.first);
         }
@@ -47,21 +46,19 @@ void Solver::initCpsReduction() {
     }
 }
 
-void Solver::tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail) {
-    if (cpsHash != "") {
+void Solver::tryCpsReductionForHash(uint64_t cpsHash, MutationTrail* trail) {
+    if (cpsHash != 0) {
         auto val = cpsMap_[cpsHash];
         if (val == forests_.size()) { // TODO: Here as well
-            // debug(cpsHash + " has reached the criteria!");
             cpsReductionForCpsHash(cpsHash, trail);
         }
     }
 }
 
-void Solver::cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail) {
-    // debug("Trying to reduce " + cpsHash);
+void Solver::cpsReductionForCpsHash(uint64_t cpsHash, MutationTrail* trail) {
     for (auto forest : forests_) {
         auto h = forest->cpsReduction(forest->getNodeByCps(cpsHash), cpsMap_, trail);
-        if (h != "") {
+        if (h != 0) {
             tryCpsReductionForHash(h, trail);
         }
     }

@@ -48,13 +48,13 @@ enum class UndoOp : uint8_t {
     ForestLeavesErase,      // forest->leaves_.erase(shared_aux)
     ForestLeafByLabelSet,   // forest->leafByLabel_[str_aux] = shared_aux
     ForestLeafByLabelErase, // forest->leafByLabel_.erase(str_aux)
-    ForestNodeByCpsSet,     // forest->nodeByCps_[str_aux] = shared_aux
-    ForestNodeByCpsErase,   // forest->nodeByCps_.erase(str_aux)
+    ForestNodeByCpsSet,     // forest->nodeByCps_[u64_aux] = t_aux
+    ForestNodeByCpsErase,   // forest->nodeByCps_.erase(u64_aux)
     ForestComponentDelta,   // forest->componentCount_ += int_aux
     ForestComponentSet,     // forest->componentCount_  = int_aux
 
     // --- Solver / cpsMap ---
-    CpsMapDelta,            // (*cpsMapPtr)[str_aux] += int_aux
+    CpsMapDelta,            // (*cpsMapPtr)[u64_aux] += int_aux
 
     // --- Composite (preserves existing semantics for hot cpsReduction body) ---
     // a = mergedNode (raw), shared_aux=l, shared_aux2=r, shared_aux3=mergedNode.
@@ -71,10 +71,11 @@ struct UndoEntry {
     TreeNode* t_aux2 = nullptr;
     TreeNode* t_aux3 = nullptr;
     std::string str_aux;
+    uint64_t u64_aux = 0;
     int int_aux = 0;
     bool bool_a = false;
     bool bool_b = false;
-    std::unordered_map<std::string, int>* cpsMapPtr = nullptr;
+    std::unordered_map<uint64_t, int>* cpsMapPtr = nullptr;
 };
 
 class MutationTrail {

@@ -19,8 +19,8 @@ public:
     inline NewickParser(std::string_view text, std::deque<TreeNode>& arena) : text_(text), arena_(arena) {}
 
     std::pair<TreeNode*, std::unordered_set<TreeNode*>> parseTree(std::unordered_map<std::string, TreeNode*>& leafByLabel,
-                                                                  std::unordered_map<std::string, TreeNode*>& nodeByCps,
-                                                                  std::unordered_map<std::string, int>& cpsMap);
+                                                                  std::unordered_map<uint64_t, TreeNode*>& nodeByCps,
+                                                                  std::unordered_map<uint64_t, int>& cpsMap);
 
 private:
     std::string_view text_;
@@ -30,8 +30,8 @@ private:
     TreeNode* allocNode();
 
     TreeNode* parseSubtree(std::unordered_set<TreeNode*>& leaves, std::unordered_map<std::string, TreeNode*>& leafByLabel,
-                           std::unordered_map<std::string, TreeNode*>& nodeByCps,
-                           std::unordered_map<std::string, int>& cpsMap);
+                           std::unordered_map<uint64_t, TreeNode*>& nodeByCps,
+                           std::unordered_map<uint64_t, int>& cpsMap);
 
     int parseNumber();
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -10,7 +11,7 @@
 struct TreeNode {
     bool isMerged = false;
     bool isLeaf = false;
-    std::string cpsHash = "";
+    uint64_t cpsHash = 0;
     std::string label = "0";
 
     TreeNode* parent = nullptr;
