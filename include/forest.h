@@ -27,6 +27,7 @@ class Forest {
 		using SiblingPairSet = std::unordered_set<SiblingPair, SiblingPairHash, SiblingPairEq>;
 
 	private:
+	friend class MutationTrail;
 	std::unordered_set<std::shared_ptr<TreeNode>> roots_;
 	std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
 	int componentCount_;

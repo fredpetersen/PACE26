@@ -61,16 +61,20 @@ void Forest::updateSiblingPairParent(std::shared_ptr<TreeNode> node, MutationTra
     if (shouldExist && !exists) {
         siblingPairParents_.insert(key);
         if (trail != nullptr) {
-            trail->record([this, key]() {
-                siblingPairParents_.erase(key);
-            });
+            UndoEntry e{};
+            e.op = UndoOp::ForestSiblingErase;
+            e.forest = this;
+            e.shared_aux = key;
+            trail->record(std::move(e));
         }
     } else if (!shouldExist && exists) {
         siblingPairParents_.erase(it);
         if (trail != nullptr) {
-            trail->record([this, key]() {
-                siblingPairParents_.insert(key);
-            });
+            UndoEntry e{};
+            e.op = UndoOp::ForestSiblingInsert;
+            e.forest = this;
+            e.shared_aux = key;
+            trail->record(std::move(e));
         }
     }
 }
@@ -141,11 +145,13 @@ void Forest::expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trai
     node->isLeaf = false;
     node->label = "0";
     if (trail != nullptr) {
-        trail->record([node, oldLabel, oldIsLeaf, oldIsMerged]() {
-            node->label = oldLabel;
-            node->isLeaf = oldIsLeaf;
-            node->isMerged = oldIsMerged;
-        });
+        UndoEntry e{};
+        e.op = UndoOp::NodeLabelFlags;
+        e.a = node.get();
+        e.str_aux = std::move(oldLabel);
+        e.bool_a = oldIsLeaf;
+        e.bool_b = oldIsMerged;
+        trail->record(std::move(e));
     }
 
     updateSiblingPairParent(node->parentShared(), trail);
@@ -187,34 +193,42 @@ std::string Forest::detachChild(std::shared_ptr<TreeNode> child, std::unordered_
 
         auto inserted = roots_.insert(child).second;
         if (trail != nullptr && inserted) {
-            trail->record([this, child]() {
-                roots_.erase(child);
-            });
+            UndoEntry e{};
+            e.op = UndoOp::ForestRootsErase;
+            e.forest = this;
+            e.shared_aux = child;
+            trail->record(std::move(e));
         }
 
         auto previousParent = child->parent;
         child->parent = nullptr;
         if (trail != nullptr) {
-            trail->record([child, previousParent]() {
-                child->parent = previousParent;
-            });
+            UndoEntry e{};
+            e.op = UndoOp::NodeParent;
+            e.a = child.get();
+            e.node_aux = previousParent;
+            trail->record(std::move(e));
         }
 
         if (isLeftChild) {
             auto previousLeft = parent->left;
             parent->left = nullptr;
             if (trail != nullptr) {
-                trail->record([parent, previousLeft]() {
-                    parent->left = previousLeft;
-                });
+                UndoEntry e{};
+                e.op = UndoOp::NodeLeftSlot;
+                e.a = parent.get();
+                e.shared_aux = std::move(previousLeft);
+                trail->record(std::move(e));
             }
         } else {
             auto previousRight = parent->right;
             parent->right = nullptr;
             if (trail != nullptr) {
-                trail->record([parent, previousRight]() {
-                    parent->right = previousRight;
-                });
+                UndoEntry e{};
+                e.op = UndoOp::NodeRightSlot;
+                e.a = parent.get();
+                e.shared_aux = std::move(previousRight);
+                trail->record(std::move(e));
             }
         }
 
@@ -222,9 +236,11 @@ std::string Forest::detachChild(std::shared_ptr<TreeNode> child, std::unordered_
 
         ++componentCount_;
         if (trail != nullptr) {
-            trail->record([this]() {
-                --componentCount_;
-            });
+            UndoEntry e{};
+            e.op = UndoOp::ForestComponentDelta;
+            e.forest = this;
+            e.int_aux = -1;
+            trail->record(std::move(e));
         }
 
         if (shouldContract) {
@@ -275,26 +291,32 @@ void Forest::contract(std::shared_ptr<TreeNode> v, MutationTrail* trail) {
                 auto previousRight = parent->right;
                 parent->right = nullptr;
                 if (trail != nullptr) {
-                    trail->record([parent, previousRight]() {
-                        parent->right = previousRight;
-                    });
+                    UndoEntry e{};
+                    e.op = UndoOp::NodeRightSlot;
+                    e.a = parent.get();
+                    e.shared_aux = std::move(previousRight);
+                    trail->record(std::move(e));
                 }
             } else {
                 auto previousLeft = parent->left;
                 parent->left = nullptr;
                 if (trail != nullptr) {
-                    trail->record([parent, previousLeft]() {
-                        parent->left = previousLeft;
-                    });
+                    UndoEntry e{};
+                    e.op = UndoOp::NodeLeftSlot;
+                    e.a = parent.get();
+                    e.shared_aux = std::move(previousLeft);
+                    trail->record(std::move(e));
                 }
             }
 
             auto previousParent = v->parent;
             v->parent = nullptr;
             if (trail != nullptr) {
-                trail->record([v, previousParent]() {
-                    v->parent = previousParent;
-                });
+                UndoEntry e{};
+                e.op = UndoOp::NodeParent;
+                e.a = v.get();
+                e.node_aux = previousParent;
+                trail->record(std::move(e));
             }
 
             updateSiblingPairParent(parent, trail);
@@ -303,9 +325,11 @@ void Forest::contract(std::shared_ptr<TreeNode> v, MutationTrail* trail) {
             removeRoot(v, trail);
             --componentCount_;
             if (trail != nullptr) {
-                trail->record([this]() {
-                    ++componentCount_;
-                });
+                UndoEntry e{};
+                e.op = UndoOp::ForestComponentDelta;
+                e.forest = this;
+                e.int_aux = 1;
+                trail->record(std::move(e));
             }
         }
         return;
@@ -318,26 +342,32 @@ void Forest::contract(std::shared_ptr<TreeNode> v, MutationTrail* trail) {
         auto previousChildParent = child->parent;
         child->parent = parent.get();
         if (trail != nullptr) {
-            trail->record([child, previousChildParent]() {
-                child->parent = previousChildParent;
-            });
+            UndoEntry e{};
+            e.op = UndoOp::NodeParent;
+            e.a = child.get();
+            e.node_aux = previousChildParent;
+            trail->record(std::move(e));
         }
 
         if (isRightChild) {
             auto previousRight = parent->right;
             parent->right = child;
             if (trail != nullptr) {
-                trail->record([parent, previousRight]() {
-                    parent->right = previousRight;
-                });
+                UndoEntry e{};
+                e.op = UndoOp::NodeRightSlot;
+                e.a = parent.get();
+                e.shared_aux = std::move(previousRight);
+                trail->record(std::move(e));
             }
         } else {
             auto previousLeft = parent->left;
             parent->left = child;
             if (trail != nullptr) {
-                trail->record([parent, previousLeft]() {
-                    parent->left = previousLeft;
-                });
+                UndoEntry e{};
+                e.op = UndoOp::NodeLeftSlot;
+                e.a = parent.get();
+                e.shared_aux = std::move(previousLeft);
+                trail->record(std::move(e));
             }
         }
 
@@ -347,9 +377,11 @@ void Forest::contract(std::shared_ptr<TreeNode> v, MutationTrail* trail) {
         auto previousChildParent = child->parent;
         child->parent = nullptr;
         if (trail != nullptr) {
-            trail->record([child, previousChildParent]() {
-                child->parent = previousChildParent;
-            });
+            UndoEntry e{};
+            e.op = UndoOp::NodeParent;
+            e.a = child.get();
+            e.node_aux = previousChildParent;
+            trail->record(std::move(e));
         }
 
         removeRoot(v, trail);
@@ -494,18 +526,13 @@ std::string Forest::cpsReduction(std::shared_ptr<TreeNode> node, std::unordered_
             updateSiblingPairParent(node->parentShared(), trail);
 
             if (trail != nullptr) {
-                trail->record([this, l, r, node]() {
-
-                    leaves_.insert(l);
-                    leaves_.insert(r);
-                    leaves_.erase(node);
-
-                    leafByLabel_.erase(node->label);
-                    leafByLabel_[l->label] = l;
-                    leafByLabel_[r->label] = r;
-
-                    nodeByCps_[node->label] = node;
-                });
+                UndoEntry e{};
+                e.op = UndoOp::CpsReductionRestore;
+                e.forest = this;
+                e.shared_aux  = l;
+                e.shared_aux2 = r;
+                e.shared_aux3 = node;
+                trail->record(std::move(e));
             }
             if (node->parent != nullptr) {
                 auto parent = node->parentShared();
@@ -604,10 +631,11 @@ void Forest::printCps() const {
 
 void Forest::setComponentCount(int newCount, MutationTrail* trail) {
     if (trail != nullptr) {
-        auto previousCount = componentCount_;
-        trail->record([this, previousCount]() {
-            componentCount_ = previousCount;
-        });
+        UndoEntry e{};
+        e.op = UndoOp::ForestComponentSet;
+        e.forest = this;
+        e.int_aux = componentCount_;
+        trail->record(std::move(e));
     }
     componentCount_ = newCount;
 }
@@ -622,9 +650,11 @@ void Forest::addRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
     }
     bool inserted = roots_.insert(node).second;
     if (trail != nullptr && inserted) {
-        trail->record([this, node]() {
-            roots_.erase(node);
-        });
+        UndoEntry e{};
+        e.op = UndoOp::ForestRootsErase;
+        e.forest = this;
+        e.shared_aux = node;
+        trail->record(std::move(e));
     }
 }
 
@@ -642,14 +672,26 @@ void Forest::addLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
     leafByLabel_[label] = node;
 
     if (trail != nullptr && inserted) {
-        trail->record([this, node, label, previousNode, hadPrevious]() {
-            leaves_.erase(node);
-            if (hadPrevious) {
-                leafByLabel_[label] = previousNode;
-            } else {
-                leafByLabel_.erase(label);
-            }
-        });
+        // Push the leafByLabel restore first so leaves_.erase pops first on undo.
+        if (hadPrevious) {
+            UndoEntry restore{};
+            restore.op = UndoOp::ForestLeafByLabelSet;
+            restore.forest = this;
+            restore.str_aux = label;
+            restore.shared_aux = previousNode;
+            trail->record(std::move(restore));
+        } else {
+            UndoEntry restore{};
+            restore.op = UndoOp::ForestLeafByLabelErase;
+            restore.forest = this;
+            restore.str_aux = label;
+            trail->record(std::move(restore));
+        }
+        UndoEntry e{};
+        e.op = UndoOp::ForestLeavesErase;
+        e.forest = this;
+        e.shared_aux = node;
+        trail->record(std::move(e));
     }
 
     updateSiblingPairParent(node->parentShared(), trail);
@@ -664,9 +706,11 @@ void Forest::removeRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
             auto previousRoot = *it;
             roots_.erase(it);
             if (trail != nullptr) {
-                trail->record([this, previousRoot]() {
-                    roots_.insert(previousRoot);
-                });
+                UndoEntry e{};
+                e.op = UndoOp::ForestRootsInsert;
+                e.forest = this;
+                e.shared_aux = previousRoot;
+                trail->record(std::move(e));
             }
             return;
         }
@@ -688,12 +732,19 @@ void Forest::removeLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
     }
 
     if (trail != nullptr && erased > 0) {
-        trail->record([this, node, label, previousNode, hadMapping]() {
-            leaves_.insert(node);
-            if (hadMapping) {
-                leafByLabel_[label] = previousNode;
-            }
-        });
+        if (hadMapping) {
+            UndoEntry restore{};
+            restore.op = UndoOp::ForestLeafByLabelSet;
+            restore.forest = this;
+            restore.str_aux = label;
+            restore.shared_aux = previousNode;
+            trail->record(std::move(restore));
+        }
+        UndoEntry e{};
+        e.op = UndoOp::ForestLeavesInsert;
+        e.forest = this;
+        e.shared_aux = node;
+        trail->record(std::move(e));
     }
 
     updateSiblingPairParent(node->parentShared(), trail);

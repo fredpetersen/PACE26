@@ -49,11 +49,13 @@ void localMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
         node->isMerged = true;
 
         if (trail != nullptr) {
-            trail->record([node, oldLabel, oldIsLeaf, oldIsMerged]() {
-                node->label = oldLabel;
-                node->isLeaf = oldIsLeaf;
-                node->isMerged = oldIsMerged;
-            });
+            UndoEntry e{};
+            e.op = UndoOp::NodeLabelFlags;
+            e.a = node.get();
+            e.str_aux = std::move(oldLabel);
+            e.bool_a = oldIsLeaf;
+            e.bool_b = oldIsMerged;
+            trail->record(std::move(e));
         }
     } else {
         std::cout << "Left or Right node not leaf" << std::endl;
@@ -62,7 +64,7 @@ void localMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
 
 void globalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
     // if (node == nullptr) {return;} // This should be present in the final version, but its easier to debug with this commented out
-    
+
     if (node->isCpsNode()) {
         auto l = node->left;
         auto r = node->right;
@@ -76,16 +78,12 @@ void globalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail) {
         l->parent = nullptr;
         r->parent = nullptr;
         if (trail != nullptr) {
-            trail->record([l, r, node]() {
-                node->isLeaf = false;
-                node->label = "0";
-
-                node->left = l;
-                node->right = r;
-
-                l->parent = node.get();
-                r->parent = node.get();
-            });
+            UndoEntry e{};
+            e.op = UndoOp::NodeUnmergeCherry;
+            e.a = node.get();
+            e.shared_aux  = l;
+            e.shared_aux2 = r;
+            trail->record(std::move(e));
         }
     }
 }
