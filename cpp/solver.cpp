@@ -37,45 +37,34 @@ void Solver::initCpsReduction() {
     auto keys = std::stack<std::string>{};
     for (auto kv : cpsMap_) {
         // debug(kv.first + ", " + std::to_string(kv.second));
-        if (kv.second == forests_.size()) {
+        if (kv.second == forests_.size()) { // TODO: is it forests_.size() - solvedForests
             keys.push(kv.first);
         }
     }
     while (!keys.empty()) {
-        auto newKeys = tryCpsReductionForHash(keys.top());
+        tryCpsReductionForHash(keys.top());
         keys.pop();
-
-        // debug("New Keys");
-        for (auto& key : newKeys) {
-            // debug(key);
-            keys.push(key);
-        }
     }
 }
 
-std::unordered_set<std::string> Solver::tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail) {
+void Solver::tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail) {
     if (cpsHash != "") {
         auto val = cpsMap_[cpsHash];
-        if (val == forests_.size()) {
+        if (val == forests_.size()) { // TODO: Here as well
             // debug(cpsHash + " has reached the criteria!");
-            return cpsReductionForCpsHash(cpsHash, trail);
+            cpsReductionForCpsHash(cpsHash, trail);
         }
     }
-    return {};
 }
 
-std::unordered_set<std::string> Solver::cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail) {
+void Solver::cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail) {
     // debug("Trying to reduce " + cpsHash);
-    std::unordered_set<std::string> updatedHashes = {};
     for (auto forest : forests_) {
         auto h = forest->cpsReduction(forest->getNodeByCps(cpsHash), cpsMap_, trail);
         if (h != "") {
-            updatedHashes.insert(h);
-            auto tmp = tryCpsReductionForHash(h, trail);
-            updatedHashes.insert(tmp.begin(), tmp.end());
+            tryCpsReductionForHash(h, trail);
         }
     }
-    return updatedHashes;
 }
 
 void Solver::detachByLabel(std::shared_ptr<Forest> forest, std::string label, MutationTrail* trail) {

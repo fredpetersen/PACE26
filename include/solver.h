@@ -38,9 +38,9 @@ public:
 
     void initCpsReduction();
 
-    std::unordered_set<std::string> tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail = nullptr);
+    void tryCpsReductionForHash(std::string cpsHash, MutationTrail* trail = nullptr);
 
-    std::unordered_set<std::string> cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail = nullptr);
+    void cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail = nullptr);
 
     void detachByLabel(std::shared_ptr<Forest> forest, std::string label, MutationTrail* trail = nullptr);
     void detachChild(std::shared_ptr<Forest> forest, std::shared_ptr<TreeNode> node, bool shouldContract = true, MutationTrail* trail = nullptr);
