@@ -27,6 +27,10 @@ class Solver {
   std::vector<std::shared_ptr<Forest>> forests_;
   int leafCount_;
   std::unordered_map<uint64_t, int> cpsMap_;
+  // Memoization: maps canonical forest-state hash -> largest k that was already
+  // proven infeasible for that exact state. A future visit with budget k' <=
+  // cached value can be pruned immediately.
+  std::unordered_map<uint64_t, int> failureCache_;
 
 public:
     inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<uint64_t, int> cpsMap)

@@ -17,6 +17,44 @@
 #include <tree_node.h>
 #include <forest.h>
 
+namespace {
+
+// Recursive structural hash of a tree. Symmetric over the two children so that
+// (a,b) and (b,a) hash identically (consistent with the rest of the solver).
+uint64_t hashNode(const TreeNode* n) {
+    if (n == nullptr) return 0;
+    if (n->isLeaf) {
+        return std::hash<std::string>{}(n->label);
+    }
+    uint64_t hl = hashNode(n->left);
+    uint64_t hr = hashNode(n->right);
+    if (hl > hr) std::swap(hl, hr);
+    return hl ^ (hr + 0x9e3779b97f4a7c15ULL + (hl << 6) + (hl >> 2));
+}
+
+// Multiset hash of a forest's roots (commutative — root order in the set is
+// not semantically meaningful).
+uint64_t hashForest(const Forest& f) {
+    uint64_t acc = 0;
+    for (auto* r : const_cast<Forest&>(f).getRoots()) {
+        acc += hashNode(r);
+    }
+    return acc;
+}
+
+// Ordered hash across forests: forests[0] (the MAF being built) is
+// distinguished from forests[1..], so the order is significant.
+uint64_t hashForests(const std::vector<std::shared_ptr<Forest>>& fs) {
+    uint64_t h = fs.size();
+    for (const auto& f : fs) {
+        uint64_t fh = hashForest(*f);
+        h ^= fh + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    }
+    return h;
+}
+
+} // namespace
+
 void Solver::printForests() const {
     int i = 1;
     for (auto f : forests_) {
@@ -136,6 +174,23 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
     cleanSingletonLeaves(f1, f2, &trail);
     cleanSingletonLeaves(f2, f1, &trail);
 
+    // Memoization: if this exact (canonicalized) state was already proven
+    // infeasible at a budget >= k, prune immediately. The hash is also used
+    // below to record this state as infeasible if every branch fails.
+    const uint64_t stateHash = hashForests(forests);
+    {
+        auto it = failureCache_.find(stateHash);
+        if (it != failureCache_.end() && it->second >= k) {
+            return {false, {nullptr}};
+        }
+    }
+
+    auto recordFailure = [&]() -> std::pair<bool, std::vector<std::shared_ptr<Forest>>> {
+        auto& cached = failureCache_[stateHash];
+        if (k > cached) cached = k;
+        return {false, {nullptr}};
+    };
+
     debug("4");
     // Step 4 (try to get a sibling pair in F2. If it can't be done, move on to solving F3)
     auto [idx, siblingPair] = f2->getOneSiblingPair();
@@ -152,7 +207,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         }
 
         trail.rollback(checkpoint);
-        return {false, {nullptr}};
+        return recordFailure();
     }
 
     debug("5");
@@ -235,5 +290,5 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         trail.rollback(checkpoint);
     }
 
-    return {false, {nullptr}};
+    return recordFailure();
 }
