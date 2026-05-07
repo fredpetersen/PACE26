@@ -220,7 +220,7 @@ Instance parseInput() {
         }
 
         instance.forests.reserve(instance.forestCount);
-        auto cpsMap = std::unordered_map<std::string, int>(); 
+        auto cpsMap = std::unordered_map<std::string, int>();
         for (std::size_t idx = 0; idx < instance.rawTrees.size(); ++idx) {
             const auto& newick = instance.rawTrees[idx];
             std::size_t forestLineNumber = instance.forestLineNumbers[idx];
