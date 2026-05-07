@@ -21,15 +21,23 @@ namespace {
 
 // Recursive structural hash of a tree. Symmetric over the two children so that
 // (a,b) and (b,a) hash identically (consistent with the rest of the solver).
+// Result is memoized on TreeNode::subtreeHash and invalidated upward by every
+// structural mutation (see invalidateSubtreeHash in tree_node.h).
 uint64_t hashNode(const TreeNode* n) {
     if (n == nullptr) return 0;
+    if (n->subtreeHash != 0) return n->subtreeHash;
+    uint64_t h;
     if (n->isLeaf) {
-        return std::hash<std::string>{}(n->label);
+        h = std::hash<std::string>{}(n->label);
+    } else {
+        uint64_t hl = hashNode(n->left);
+        uint64_t hr = hashNode(n->right);
+        if (hl > hr) std::swap(hl, hr);
+        h = hl ^ (hr + 0x9e3779b97f4a7c15ULL + (hl << 6) + (hl >> 2));
     }
-    uint64_t hl = hashNode(n->left);
-    uint64_t hr = hashNode(n->right);
-    if (hl > hr) std::swap(hl, hr);
-    return hl ^ (hr + 0x9e3779b97f4a7c15ULL + (hl << 6) + (hl >> 2));
+    if (h == 0) h = 1; // 0 is reserved as the "invalid" sentinel.
+    n->subtreeHash = h;
+    return h;
 }
 
 // Multiset hash of a forest's roots (commutative — root order in the set is

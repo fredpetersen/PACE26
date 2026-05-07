@@ -30,14 +30,17 @@ void MutationTrail::apply(UndoEntry& e) {
             break;
         case UndoOp::NodeLeftSlot:
             e.a->left = e.t_aux;
+            invalidateSubtreeHash(e.a);
             break;
         case UndoOp::NodeRightSlot:
             e.a->right = e.t_aux;
+            invalidateSubtreeHash(e.a);
             break;
         case UndoOp::NodeLabelFlags:
             e.a->label = std::move(e.str_aux);
             e.a->isLeaf = e.bool_a;
             e.a->isMerged = e.bool_b;
+            invalidateSubtreeHash(e.a);
             break;
         case UndoOp::NodeUnmergeCherry: {
             TreeNode* node = e.a;
@@ -49,6 +52,7 @@ void MutationTrail::apply(UndoEntry& e) {
             node->right = r;
             if (l) l->parent = node;
             if (r) r->parent = node;
+            invalidateSubtreeHash(node);
             break;
         }
 
@@ -107,6 +111,7 @@ void MutationTrail::apply(UndoEntry& e) {
             e.forest->leafByLabel_[r->label] = r;
 
             e.forest->nodeByCps_[node->cpsHash] = node;
+            invalidateSubtreeHash(node);
             break;
         }
     }

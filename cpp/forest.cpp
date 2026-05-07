@@ -142,6 +142,7 @@ void Forest::expandRecursive(TreeNode* node, MutationTrail* trail) {
     node->isMerged = false;
     node->isLeaf = false;
     node->label = "0";
+    invalidateSubtreeHash(node);
     if (trail != nullptr) {
         UndoEntry e{};
         e.op = UndoOp::NodeLabelFlags;
@@ -210,6 +211,7 @@ uint64_t Forest::detachChild(TreeNode* child, std::unordered_map<uint64_t, int>&
         if (isLeftChild) {
             auto previousLeft = parent->left;
             parent->left = nullptr;
+            invalidateSubtreeHash(parent);
             if (trail != nullptr) {
                 UndoEntry e{};
                 e.op = UndoOp::NodeLeftSlot;
@@ -220,6 +222,7 @@ uint64_t Forest::detachChild(TreeNode* child, std::unordered_map<uint64_t, int>&
         } else {
             auto previousRight = parent->right;
             parent->right = nullptr;
+            invalidateSubtreeHash(parent);
             if (trail != nullptr) {
                 UndoEntry e{};
                 e.op = UndoOp::NodeRightSlot;
@@ -275,6 +278,7 @@ void Forest::contract(TreeNode* v, MutationTrail* trail) {
             if (isRightChild) {
                 auto previousRight = parent->right;
                 parent->right = nullptr;
+                invalidateSubtreeHash(parent);
                 if (trail != nullptr) {
                     UndoEntry e{};
                     e.op = UndoOp::NodeRightSlot;
@@ -285,6 +289,7 @@ void Forest::contract(TreeNode* v, MutationTrail* trail) {
             } else {
                 auto previousLeft = parent->left;
                 parent->left = nullptr;
+                invalidateSubtreeHash(parent);
                 if (trail != nullptr) {
                     UndoEntry e{};
                     e.op = UndoOp::NodeLeftSlot;
@@ -337,6 +342,7 @@ void Forest::contract(TreeNode* v, MutationTrail* trail) {
         if (isRightChild) {
             auto previousRight = parent->right;
             parent->right = child;
+            invalidateSubtreeHash(parent);
             if (trail != nullptr) {
                 UndoEntry e{};
                 e.op = UndoOp::NodeRightSlot;
@@ -347,6 +353,7 @@ void Forest::contract(TreeNode* v, MutationTrail* trail) {
         } else {
             auto previousLeft = parent->left;
             parent->left = child;
+            invalidateSubtreeHash(parent);
             if (trail != nullptr) {
                 UndoEntry e{};
                 e.op = UndoOp::NodeLeftSlot;

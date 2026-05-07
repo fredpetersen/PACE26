@@ -31,6 +31,7 @@ void localMergeCherry(TreeNode* node, MutationTrail* trail) {
         node->label = lab_l < lab_r ? "("+lab_l+","+lab_r+")" : "("+lab_r+","+lab_l+")";
         node->isLeaf = true;
         node->isMerged = true;
+        invalidateSubtreeHash(node);
 
         if (trail != nullptr) {
             UndoEntry e{};
@@ -56,6 +57,7 @@ void globalMergeCherry(TreeNode* node, MutationTrail* trail) {
 
         node->left = nullptr;
         node->right = nullptr;
+        invalidateSubtreeHash(node);
 
         l->parent = nullptr;
         r->parent = nullptr;
