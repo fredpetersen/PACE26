@@ -1,5 +1,5 @@
 CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -O3 -DNDEBUG -march=native -flto -pipe -Wno-unused-result
+CXXFLAGS ?= -std=c++17 -O3 -ffast-math -DNDEBUG -march=native -flto -pipe -Wno-unused-result
 LDFLAGS  ?= -flto
 
 build:
