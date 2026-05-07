@@ -9,9 +9,6 @@ void MutationTrail::rollback(std::size_t cp) {
         entries_.pop_back();
         apply(e);
     }
-    // Trim lambdas_ that are now beyond any remaining Lambda entry. Keeping it
-    // simple: if entries are empty we can clear lambdas. Otherwise leave them;
-    // they are only invoked through indices already consumed.
     if (entries_.empty()) {
         lambdas_.clear();
     }
@@ -32,10 +29,10 @@ void MutationTrail::apply(UndoEntry& e) {
             e.a->parent = e.node_aux;
             break;
         case UndoOp::NodeLeftSlot:
-            e.a->left = std::move(e.shared_aux);
+            e.a->left = e.t_aux;
             break;
         case UndoOp::NodeRightSlot:
-            e.a->right = std::move(e.shared_aux);
+            e.a->right = e.t_aux;
             break;
         case UndoOp::NodeLabelFlags:
             e.a->label = std::move(e.str_aux);
@@ -43,10 +40,9 @@ void MutationTrail::apply(UndoEntry& e) {
             e.a->isMerged = e.bool_b;
             break;
         case UndoOp::NodeUnmergeCherry: {
-            // Inverse of globalMergeCherry: restore internal-node state.
             TreeNode* node = e.a;
-            auto& l = e.shared_aux;
-            auto& r = e.shared_aux2;
+            TreeNode* l = e.t_aux;
+            TreeNode* r = e.t_aux2;
             node->isLeaf = false;
             node->label = "0";
             node->left = l;
@@ -57,31 +53,31 @@ void MutationTrail::apply(UndoEntry& e) {
         }
 
         case UndoOp::ForestSiblingInsert:
-            e.forest->siblingPairParents_.insert(std::move(e.shared_aux));
+            e.forest->siblingPairParents_.insert(e.t_aux);
             break;
         case UndoOp::ForestSiblingErase:
-            e.forest->siblingPairParents_.erase(e.shared_aux);
+            e.forest->siblingPairParents_.erase(e.t_aux);
             break;
         case UndoOp::ForestRootsInsert:
-            e.forest->roots_.insert(std::move(e.shared_aux));
+            e.forest->roots_.insert(e.t_aux);
             break;
         case UndoOp::ForestRootsErase:
-            e.forest->roots_.erase(e.shared_aux);
+            e.forest->roots_.erase(e.t_aux);
             break;
         case UndoOp::ForestLeavesInsert:
-            e.forest->leaves_.insert(std::move(e.shared_aux));
+            e.forest->leaves_.insert(e.t_aux);
             break;
         case UndoOp::ForestLeavesErase:
-            e.forest->leaves_.erase(e.shared_aux);
+            e.forest->leaves_.erase(e.t_aux);
             break;
         case UndoOp::ForestLeafByLabelSet:
-            e.forest->leafByLabel_[std::move(e.str_aux)] = std::move(e.shared_aux);
+            e.forest->leafByLabel_[std::move(e.str_aux)] = e.t_aux;
             break;
         case UndoOp::ForestLeafByLabelErase:
             e.forest->leafByLabel_.erase(e.str_aux);
             break;
         case UndoOp::ForestNodeByCpsSet:
-            e.forest->nodeByCps_[std::move(e.str_aux)] = std::move(e.shared_aux);
+            e.forest->nodeByCps_[std::move(e.str_aux)] = e.t_aux;
             break;
         case UndoOp::ForestNodeByCpsErase:
             e.forest->nodeByCps_.erase(e.str_aux);
@@ -98,16 +94,14 @@ void MutationTrail::apply(UndoEntry& e) {
             break;
 
         case UndoOp::CpsReductionRestore: {
-            // a is unused; nodes are held via shared_aux/2/3 to keep them alive.
-            auto& l = e.shared_aux;
-            auto& r = e.shared_aux2;
-            auto& node = e.shared_aux3;
+            TreeNode* l = e.t_aux;
+            TreeNode* r = e.t_aux2;
+            TreeNode* node = e.t_aux3;
 
             e.forest->leaves_.insert(l);
             e.forest->leaves_.insert(r);
             e.forest->leaves_.erase(node);
 
-            // Match the original (including its existing quirk on the merged label):
             e.forest->leafByLabel_.erase(node->label);
             e.forest->leafByLabel_[l->label] = l;
             e.forest->leafByLabel_[r->label] = r;

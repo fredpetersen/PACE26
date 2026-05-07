@@ -43,7 +43,7 @@ public:
     void cpsReductionForCpsHash(std::string cpsHash, MutationTrail* trail = nullptr);
 
     void detachByLabel(std::shared_ptr<Forest> forest, std::string label, MutationTrail* trail = nullptr);
-    void detachChild(std::shared_ptr<Forest> forest, std::shared_ptr<TreeNode> node, bool shouldContract = true, MutationTrail* trail = nullptr);
+    void detachChild(std::shared_ptr<Forest> forest, TreeNode* node, bool shouldContract = true, MutationTrail* trail = nullptr);
 
     std::shared_ptr<Forest> solve();
     std::pair<bool, std::shared_ptr<Forest>> solve(int k);

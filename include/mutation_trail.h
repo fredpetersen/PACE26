@@ -67,9 +67,9 @@ struct UndoEntry {
     Forest* forest = nullptr;
     TreeNode* a = nullptr;
     TreeNode* node_aux = nullptr;                  // e.g., previous parent pointer
-    std::shared_ptr<TreeNode> shared_aux;          // owning slot restore / set membership
-    std::shared_ptr<TreeNode> shared_aux2;
-    std::shared_ptr<TreeNode> shared_aux3;
+    TreeNode* t_aux  = nullptr;                    // slot restore / set membership / etc
+    TreeNode* t_aux2 = nullptr;
+    TreeNode* t_aux3 = nullptr;
     std::string str_aux;
     int int_aux = 0;
     bool bool_a = false;

@@ -2,9 +2,11 @@
 
 #include <vector>
 #include <memory>
+#include <deque>
 #include <unordered_map>
 
 #include <forest.h>
+#include <tree_node.h>
 
 struct Instance {
     bool hasCounts = false;
@@ -15,6 +17,7 @@ struct Instance {
     std::vector<std::string> rawTrees;
     std::vector<std::size_t> forestLineNumbers;
     std::vector<std::shared_ptr<Forest>> forests;
+    std::deque<TreeNode> nodeArena;
     std::unordered_map<std::string, std::string> parameters;
     std::unordered_map<std::string, std::string> systemValues;
 };

@@ -7,22 +7,19 @@
 #include <utils.h>
 #include <mutation_trail.h>
 
-struct TreeNode : std::enable_shared_from_this<TreeNode> {
+struct TreeNode {
     bool isMerged = false;
     bool isLeaf = false;
     std::string cpsHash = "";
     std::string label = "0";
 
     TreeNode* parent = nullptr;
-    std::shared_ptr<TreeNode> left;
-    std::shared_ptr<TreeNode> right;
+    TreeNode* left  = nullptr;
+    TreeNode* right = nullptr;
 
     void setCps();
     bool isCpsNode();
-
-    std::shared_ptr<TreeNode> parentShared() const;
-    std::shared_ptr<TreeNode> self();
 };
 
-void localMergeCherry(std::shared_ptr<TreeNode> node,  MutationTrail* trail = nullptr);
-void globalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
+void localMergeCherry(TreeNode* node,  MutationTrail* trail = nullptr);
+void globalMergeCherry(TreeNode* node, MutationTrail* trail = nullptr);

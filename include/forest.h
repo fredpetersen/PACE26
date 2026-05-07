@@ -13,86 +13,86 @@
 #include <tree_node.h>
 
 struct SiblingPairHash {
-    size_t operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& p) const noexcept;
+    size_t operator()(const std::pair<TreeNode*, TreeNode*>& p) const noexcept;
 };
 
 struct SiblingPairEq {
-    bool operator()(const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& a,
-                    const std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>& b) const noexcept;
+    bool operator()(const std::pair<TreeNode*, TreeNode*>& a,
+                    const std::pair<TreeNode*, TreeNode*>& b) const noexcept;
 };
 
 class Forest {
 	public:
-		using SiblingPair = std::pair<std::shared_ptr<TreeNode>, std::shared_ptr<TreeNode>>;
+		using SiblingPair = std::pair<TreeNode*, TreeNode*>;
 		using SiblingPairSet = std::unordered_set<SiblingPair, SiblingPairHash, SiblingPairEq>;
 
 	private:
 	friend class MutationTrail;
-	std::unordered_set<std::shared_ptr<TreeNode>> roots_;
-	std::unordered_set<std::shared_ptr<TreeNode>> leaves_;
+	std::unordered_set<TreeNode*> roots_;
+	std::unordered_set<TreeNode*> leaves_;
 	int componentCount_;
-	std::unordered_map<std::string, std::shared_ptr<TreeNode>> leafByLabel_; // Could probably be merged into nodeByLabel_ if label and cps can be merged
-	std::unordered_map<std::string, std::shared_ptr<TreeNode>> nodeByCps_;
-	std::unordered_set<std::shared_ptr<TreeNode>> siblingPairParents_;
+	std::unordered_map<std::string, TreeNode*> leafByLabel_;
+	std::unordered_map<std::string, TreeNode*> nodeByCps_;
+	std::unordered_set<TreeNode*> siblingPairParents_;
 
-	bool isSiblingPairNode(std::shared_ptr<TreeNode> node) const;
-	void updateSiblingPairParent(std::shared_ptr<TreeNode> node, MutationTrail* trail);
+	bool isSiblingPairNode(TreeNode* node) const;
+	void updateSiblingPairParent(TreeNode* node, MutationTrail* trail);
 	void rebuildSiblingPairCache();
 
 	public:
-		inline Forest() : roots_({}), leaves_({}), leafByLabel_({}), nodeByCps_({}), siblingPairParents_({}) {}
+		inline Forest() : roots_({}), leaves_({}), componentCount_(0), leafByLabel_({}), nodeByCps_({}), siblingPairParents_({}) {}
 
-		inline Forest(std::unordered_set<std::shared_ptr<TreeNode>> roots, std::unordered_set<std::shared_ptr<TreeNode>> leaves,
-			std::unordered_map<std::string, std::shared_ptr<TreeNode>> leafByLabel, std::unordered_map<std::string, std::shared_ptr<TreeNode>> nodeByCps)
-			: roots_(roots), leaves_(leaves), componentCount_(1), leafByLabel_(leafByLabel), nodeByCps_(nodeByCps) {
+		inline Forest(std::unordered_set<TreeNode*> roots, std::unordered_set<TreeNode*> leaves,
+			std::unordered_map<std::string, TreeNode*> leafByLabel, std::unordered_map<std::string, TreeNode*> nodeByCps)
+			: roots_(std::move(roots)), leaves_(std::move(leaves)), componentCount_(1), leafByLabel_(std::move(leafByLabel)), nodeByCps_(std::move(nodeByCps)) {
 			rebuildSiblingPairCache();
 		}
 
-		void forestLocalMergeCherry(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
+		void forestLocalMergeCherry(TreeNode* node, MutationTrail* trail = nullptr);
 		void expandMergedSubtrees(MutationTrail* trail = nullptr);
-		void expandRecursive(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
+		void expandRecursive(TreeNode* node, MutationTrail* trail = nullptr);
 
-		std::string detachChild(std::shared_ptr<TreeNode> child, std::unordered_map<std::string, int>& cpsMap, bool shouldContract = true, MutationTrail* trail = nullptr);
+		std::string detachChild(TreeNode* child, std::unordered_map<std::string, int>& cpsMap, bool shouldContract = true, MutationTrail* trail = nullptr);
 		std::string detachByLabel(const std::string& label, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail = nullptr);
-		void contract(std::shared_ptr<TreeNode> v, MutationTrail* trail = nullptr);
-		void contractIntoCherry(const std::string& lab_u, const std::string& lab_v, std::shared_ptr<TreeNode> ancestor, MutationTrail* trail = nullptr);
+		void contract(TreeNode* v, MutationTrail* trail = nullptr);
+		void contractIntoCherry(const std::string& lab_u, const std::string& lab_v, TreeNode* ancestor, MutationTrail* trail = nullptr);
 
-		std::pair<std::shared_ptr<TreeNode>, int> lca(const std::string& label_u, const std::string& label_v);
-		std::vector<std::shared_ptr<TreeNode>> collectPendantSubtreesBetweenLeaves(const std::string& leftLeaf,
+		std::pair<TreeNode*, int> lca(const std::string& label_u, const std::string& label_v);
+		std::vector<TreeNode*> collectPendantSubtreesBetweenLeaves(const std::string& leftLeaf,
 	                                                    const std::string& rightLeaf,
-	                                                    std::shared_ptr<TreeNode> lcaNode);
+	                                                    TreeNode* lcaNode);
 
-		std::string cpsReduction(std::shared_ptr<TreeNode> node, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail = nullptr);
+		std::string cpsReduction(TreeNode* node, std::unordered_map<std::string, int>& cpsMap, MutationTrail* trail = nullptr);
 
-		std::string treeToNewick(const std::shared_ptr<TreeNode>& node);
+		std::string treeToNewick(const TreeNode* node);
 		void printForestNewick();
 
 		void setComponentCount(int newCount, MutationTrail* trail = nullptr);
 		int getComponentCount();
 
 		void print(const std::string& name) const;
-		void printTreeRecursive(const std::shared_ptr<TreeNode> node, const std::string& prefix, bool isLeft) const;
-		void printTree(const std::shared_ptr<TreeNode> root, const std::string& name) const;
+		void printTreeRecursive(const TreeNode* node, const std::string& prefix, bool isLeft) const;
+		void printTree(const TreeNode* root, const std::string& name) const;
 
 		void printCps() const;
 
-		void addRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
-		void addLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
+		void addRoot(TreeNode* node, MutationTrail* trail = nullptr);
+		void addLeaf(TreeNode* node, MutationTrail* trail = nullptr);
 
-		void removeRoot(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
-		void removeLeaf(std::shared_ptr<TreeNode> node, MutationTrail* trail = nullptr);
+		void removeRoot(TreeNode* node, MutationTrail* trail = nullptr);
+		void removeLeaf(TreeNode* node, MutationTrail* trail = nullptr);
 
-		std::unordered_set<std::shared_ptr<TreeNode>> getRoots();
-		std::unordered_set<std::shared_ptr<TreeNode>> getLeaves();
+		std::unordered_set<TreeNode*> getRoots();
+		std::unordered_set<TreeNode*> getLeaves();
 
-		std::shared_ptr<TreeNode> getLeafByLabel(const std::string& label) const;
-		std::shared_ptr<TreeNode> getNodeByCps(const std::string& label) const;
+		TreeNode* getLeafByLabel(const std::string& label) const;
+		TreeNode* getNodeByCps(const std::string& label) const;
 
 		SiblingPairSet getSiblingLeafPairs();
 		std::pair<int, SiblingPair> getOneSiblingPair(int startIndex = 0);
 
-		void setRoots(std::unordered_set<std::shared_ptr<TreeNode>> newRoots);
-		void setLeaves(std::unordered_set<std::shared_ptr<TreeNode>> newLeaves);
-		void setLeavesByLabel(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newLeavesByLabel);
-		void setNodesByCps(std::unordered_map<std::string, std::shared_ptr<TreeNode>> newNodesByCps);
+		void setRoots(std::unordered_set<TreeNode*> newRoots);
+		void setLeaves(std::unordered_set<TreeNode*> newLeaves);
+		void setLeavesByLabel(std::unordered_map<std::string, TreeNode*> newLeavesByLabel);
+		void setNodesByCps(std::unordered_map<std::string, TreeNode*> newNodesByCps);
 };

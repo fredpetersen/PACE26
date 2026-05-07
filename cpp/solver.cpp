@@ -72,7 +72,7 @@ void Solver::detachByLabel(std::shared_ptr<Forest> forest, std::string label, Mu
     tryCpsReductionForHash(h, trail);
 }
 
-void Solver::detachChild(std::shared_ptr<Forest> forest, std::shared_ptr<TreeNode> node, bool shouldContract, MutationTrail* trail) {
+void Solver::detachChild(std::shared_ptr<Forest> forest, TreeNode* node, bool shouldContract, MutationTrail* trail) {
     auto h = forest->detachChild(node, cpsMap_, shouldContract, trail);
     tryCpsReductionForHash(h, trail);
 }
@@ -192,8 +192,8 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
         auto leaf = f1->getLeafByLabel(lab_u);
         auto otherLeaf = f2->getLeafByLabel(lab_u);
         if (leaf != nullptr && leaf->parent != nullptr && otherLeaf != nullptr && otherLeaf->parent != nullptr) {
-            f1->forestLocalMergeCherry(leaf->parentShared(), &trail);
-            f2->forestLocalMergeCherry(otherLeaf->parentShared(), &trail);
+            f1->forestLocalMergeCherry(leaf->parent, &trail);
+            f2->forestLocalMergeCherry(otherLeaf->parent, &trail);
             auto result = solveRecursive(k, forests, trail);
             if (result.first) {
                 return result;

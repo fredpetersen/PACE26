@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -15,19 +16,22 @@ struct ParseError : std::runtime_error {
 
 class NewickParser {
 public:
-    inline NewickParser(std::string_view text) : text_(text) {}
+    inline NewickParser(std::string_view text, std::deque<TreeNode>& arena) : text_(text), arena_(arena) {}
 
-    std::pair<std::shared_ptr<TreeNode>, std::unordered_set<std::shared_ptr<TreeNode>>> parseTree(std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel,
-                                                                                                    std::unordered_map<std::string, std::shared_ptr<TreeNode>>& nodeByCps,
-                                                                                                    std::unordered_map<std::string, int>& cpsMap);
+    std::pair<TreeNode*, std::unordered_set<TreeNode*>> parseTree(std::unordered_map<std::string, TreeNode*>& leafByLabel,
+                                                                  std::unordered_map<std::string, TreeNode*>& nodeByCps,
+                                                                  std::unordered_map<std::string, int>& cpsMap);
 
 private:
     std::string_view text_;
+    std::deque<TreeNode>& arena_;
     std::size_t position_ = 0;
 
-    std::shared_ptr<TreeNode> parseSubtree(std::unordered_set<std::shared_ptr<TreeNode>>& leaves, std::unordered_map<std::string, std::shared_ptr<TreeNode>>& leafByLabel,
-                                                                                                    std::unordered_map<std::string, std::shared_ptr<TreeNode>>& nodeByCps,
-                                                                                                    std::unordered_map<std::string, int>& cpsMap);
+    TreeNode* allocNode();
+
+    TreeNode* parseSubtree(std::unordered_set<TreeNode*>& leaves, std::unordered_map<std::string, TreeNode*>& leafByLabel,
+                           std::unordered_map<std::string, TreeNode*>& nodeByCps,
+                           std::unordered_map<std::string, int>& cpsMap);
 
     int parseNumber();
 
