@@ -16,7 +16,7 @@ int main() {
     // std::cout << "# Input Parsed" << std::endl;
 
     // std::cout << "# Creating Solver" << std::endl;
-    Solver solver(problemInstance.forests, problemInstance.leafCount, problemInstance.cpsMap);
+    Solver solver(problemInstance.forests, problemInstance.leafCount, problemInstance.cpsMap, problemInstance.tdLeafDepth);
     // TestSolver solver(problemInstance.forests, problemInstance.leafCount, problemInstance.cpsMap);
 
     // std::cout << "# Solving" << std::endl;

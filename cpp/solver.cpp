@@ -208,7 +208,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
 
     debug("4");
     // Step 4 (try to get a sibling pair in F2. If it can't be done, move on to solving F3)
-    auto [idx, siblingPair] = f2->getOneSiblingPair();
+    auto [idx, siblingPair] = f2->getOneSiblingPair(tdLeafDepth_);
     // debug(siblingPair.first->label + ", " + siblingPair.second->label);
     if (idx == -1) {
         auto checkpoint = trail.checkpoint();

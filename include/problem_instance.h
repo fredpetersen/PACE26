@@ -20,4 +20,10 @@ struct Instance {
     std::deque<TreeNode> nodeArena;
     std::unordered_map<std::string, std::string> parameters;
     std::unordered_map<std::string, std::string> systemValues;
+
+    // For each leaf id i in [1..leafCount], the minimum depth of any TD bag
+    // containing i (depth 0 = TD root). Empty if no #x treedecomp was supplied
+    // or if parsing failed. Indexed by leaf id (so size = leafCount + 1, with
+    // entry [0] unused). Unset entries default to INT_MAX so they sort last.
+    std::vector<int> tdLeafDepth;
 };

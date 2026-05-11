@@ -31,10 +31,18 @@ class Solver {
   // proven infeasible for that exact state. A future visit with budget k' <=
   // cached value can be pruned immediately.
   std::unordered_map<uint64_t, int> failureCache_;
+  // TD-derived branching priority: tdLeafDepth_[leafId] = depth of the
+  // shallowest TD bag containing that leaf (depth 0 = TD root). Smaller depth
+  // = more "central" in the display graph = preferred to branch on first.
+  // Empty if no #x treedecomp was supplied.
+  std::vector<int> tdLeafDepth_;
 
 public:
-    inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<uint64_t, int> cpsMap)
-    : forests_(forests), leafCount_(leafCount), cpsMap_(cpsMap) {}
+    inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount,
+                  std::unordered_map<uint64_t, int> cpsMap,
+                  std::vector<int> tdLeafDepth = {})
+    : forests_(forests), leafCount_(leafCount), cpsMap_(cpsMap),
+      tdLeafDepth_(std::move(tdLeafDepth)) {}
 
     void printForests() const;
 

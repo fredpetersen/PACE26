@@ -91,6 +91,13 @@ class Forest {
 
 		SiblingPairSet getSiblingLeafPairs();
 		std::pair<int, SiblingPair> getOneSiblingPair(int startIndex = 0);
+		// Variant that picks the sibling pair (u,v) minimizing
+		// max(priority[id(u)], priority[id(v)]) (i.e. the "most central" pair
+		// under a TD-derived depth ordering). Labels that don't parse as a
+		// numeric leaf id, or fall outside [0, priority.size()), are treated
+		// as INT_MAX (least preferred). Falls back to the default order if
+		// `priority` is empty.
+		std::pair<int, SiblingPair> getOneSiblingPair(const std::vector<int>& priority);
 
 		void setRoots(std::unordered_set<TreeNode*> newRoots);
 		void setLeaves(std::unordered_set<TreeNode*> newLeaves);

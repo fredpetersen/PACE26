@@ -1,6 +1,8 @@
 #include <forest.h>
 
+#include <cctype>
 #include <iterator>
+#include <limits>
 
 
 /* Hashing and equality functions assume that the TreeNodes will always be given in the same order
@@ -762,6 +764,52 @@ std::pair<int, Forest::SiblingPair> Forest::getOneSiblingPair(int startIndex) {
     }
 
     return {-1, {nullptr, nullptr}};
+}
+
+std::pair<int, Forest::SiblingPair> Forest::getOneSiblingPair(const std::vector<int>& priority) {
+    if (priority.empty()) {
+        return getOneSiblingPair();
+    }
+    if (siblingPairParents_.empty()) {
+        return {-1, {nullptr, nullptr}};
+    }
+
+    auto labelPriority = [&](const std::string& lab) -> int {
+        // Fast path: pure numeric leaf id. Anything else (e.g. merged-cherry
+        // composite labels like "(12,34)") falls back to INT_MAX.
+        if (lab.empty() || !std::isdigit(static_cast<unsigned char>(lab.front()))) {
+            return std::numeric_limits<int>::max();
+        }
+        int v = 0;
+        for (char c : lab) {
+            if (!std::isdigit(static_cast<unsigned char>(c))) {
+                return std::numeric_limits<int>::max();
+            }
+            v = v * 10 + (c - '0');
+            if (v >= static_cast<int>(priority.size())) {
+                return std::numeric_limits<int>::max();
+            }
+        }
+        return priority[v];
+    };
+
+    int bestScore = std::numeric_limits<int>::max();
+    SiblingPair bestPair{nullptr, nullptr};
+    bool found = false;
+    for (auto* parent : siblingPairParents_) {
+        if (parent == nullptr || parent->left == nullptr || parent->right == nullptr) continue;
+        int pl = labelPriority(parent->left->label);
+        int pr = labelPriority(parent->right->label);
+        int score = (pl > pr) ? pl : pr; // worst of the two = how "peripheral" the pair is
+        if (!found || score < bestScore) {
+            bestScore = score;
+            bestPair = {parent->left, parent->right};
+            found = true;
+            if (score == 0) break; // can't do better than both at the TD root
+        }
+    }
+    if (!found) return {-1, {nullptr, nullptr}};
+    return {0, bestPair};
 }
 
 void Forest::setRoots(std::unordered_set<TreeNode*> newRoots) {

@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -134,7 +135,149 @@ void parseKeyValueLine(const std::string& line, std::unordered_map<std::string, 
     }
     target.emplace(std::move(key), std::move(value));
 }
+// Parses a #x treedecomp line of the form
+//   #x treedecomp [W,[bag1,bag2,...],[edge1,edge2,...]]
+// where each bag is "[id,id,id,...]" and each edge is "[i,j]" with 1-based bag
+// indices. Populates `bags` (0-based) and `edges` (0-based pairs).
+//
+// Permissive scanner: skips brackets/commas/whitespace, reads ints; the first
+// int read is W (discarded), then all subsequent ints are grouped into bags by
+// the bracket nesting.
+//
+// Returns true on success, false if no parseable structure found.
+bool parseTreeDecomp(const std::string& valueText,
+                     std::vector<std::vector<int>>& bags,
+                     std::vector<std::pair<int,int>>& edges) {
+    bags.clear();
+    edges.clear();
+    // Two phases: phase 0 = bags, phase 1 = edges. Inner-bracket groups in
+    // phase 0 are bags; in phase 1 they are 2-element edges. We detect the
+    // transition by tracking depth: at depth 1, encountering a '[' starts an
+    // inner group; we count how many top-level groups we've seen and treat the
+    // last group at depth 1 as the edges section.
 
+    // Build a token list of all inner groups (lists of ints) at depth 2.
+    std::vector<std::vector<int>> innerGroups;
+    std::vector<int> currentGroup;
+    int depth = 0;
+    bool sawW = false;
+    int firstScalar = 0;
+    bool inGroup = false;
+
+    auto flushScalar = [&](int v) {
+        if (inGroup) {
+            currentGroup.push_back(v);
+        } else if (!sawW) {
+            firstScalar = v;
+            sawW = true;
+            (void)firstScalar; // discarded: it is the width / count
+        }
+    };
+
+    std::size_t i = 0;
+    while (i < valueText.size()) {
+        char c = valueText[i];
+        if (c == '[') {
+            ++depth;
+            if (depth == 2) {
+                inGroup = true;
+                currentGroup.clear();
+            }
+            ++i;
+        } else if (c == ']') {
+            if (depth == 2) {
+                innerGroups.push_back(std::move(currentGroup));
+                currentGroup.clear();
+                inGroup = false;
+            }
+            --depth;
+            ++i;
+        } else if (std::isdigit(static_cast<unsigned char>(c)) || c == '-') {
+            int sign = 1;
+            if (c == '-') { sign = -1; ++i; }
+            int v = 0;
+            bool any = false;
+            while (i < valueText.size() && std::isdigit(static_cast<unsigned char>(valueText[i]))) {
+                v = v * 10 + (valueText[i] - '0');
+                ++i;
+                any = true;
+            }
+            if (any) flushScalar(sign * v);
+        } else {
+            ++i; // skip ',', whitespace, etc.
+        }
+    }
+
+    if (innerGroups.empty()) return false;
+
+    // Heuristic split: trailing pairs (size 2 with values that index a bag)
+    // form the edges section; preceding groups are bags.
+    std::size_t edgeStart = innerGroups.size();
+    while (edgeStart > 0 && innerGroups[edgeStart - 1].size() == 2) {
+        --edgeStart;
+    }
+    // If everything looked like edges (rare), assume no edges.
+    if (edgeStart == 0) edgeStart = innerGroups.size();
+
+    bags.reserve(edgeStart);
+    for (std::size_t k = 0; k < edgeStart; ++k) {
+        bags.push_back(std::move(innerGroups[k]));
+    }
+    for (std::size_t k = edgeStart; k < innerGroups.size(); ++k) {
+        const auto& e = innerGroups[k];
+        if (e.size() == 2) {
+            edges.emplace_back(e[0], e[1]);
+        }
+    }
+    return !bags.empty();
+}
+
+// BFS the TD (rooted at bag 0), and for each leaf id in [1..leafCount] set
+// `out[id]` to the minimum depth (depth 0 = root bag) of any TD bag that
+// contains it. Unmapped ids get INT_MAX.
+void computeTdLeafDepth(const std::vector<std::vector<int>>& bags,
+                        const std::vector<std::pair<int,int>>& edges,
+                        int leafCount,
+                        std::vector<int>& out) {
+    out.assign(static_cast<std::size_t>(leafCount) + 1, std::numeric_limits<int>::max());
+    if (bags.empty()) return;
+
+    // Build adjacency over bags (1-based indices in `edges`).
+    std::vector<std::vector<int>> adj(bags.size());
+    for (auto [a, b] : edges) {
+        int ai = a - 1;
+        int bi = b - 1;
+        if (ai < 0 || bi < 0 || ai >= static_cast<int>(bags.size()) || bi >= static_cast<int>(bags.size())) {
+            continue;
+        }
+        adj[ai].push_back(bi);
+        adj[bi].push_back(ai);
+    }
+
+    std::vector<int> depth(bags.size(), -1);
+    std::deque<int> q;
+    depth[0] = 0;
+    q.push_back(0);
+    while (!q.empty()) {
+        int u = q.front(); q.pop_front();
+        for (int v : adj[u]) {
+            if (depth[v] == -1) {
+                depth[v] = depth[u] + 1;
+                q.push_back(v);
+            }
+        }
+    }
+
+    for (std::size_t b = 0; b < bags.size(); ++b) {
+        int d = depth[b];
+        if (d < 0) continue;
+        for (int id : bags[b]) {
+            if (id >= 1 && id <= leafCount && d < out[id]) {
+                out[id] = d;
+            }
+        }
+    }
+}
 void collectLeaves(const TreeNode* node, std::vector<std::string>& leaves) {
     if (!node) {
         return;
@@ -199,9 +342,27 @@ Instance parseInput() {
                     case 'p':
                         parseCountsLine(line, instance, lineNumber);
                         break;
-                    case 'x':
-                        parseKeyValueLine(line, instance.parameters, lineNumber, directive);
+                    case 'x': {
+                        // Detect "treedecomp" key and stash the raw value for
+                        // structured parsing later. Other #x keys go through
+                        // the simple key/value path.
+                        std::istringstream peek(line.substr(2));
+                        std::string key;
+                        if (peek >> key && key == "treedecomp") {
+                            // Stash the bracketed value (everything after the key) verbatim.
+                            auto pos = line.find("treedecomp");
+                            std::string value = (pos == std::string::npos)
+                                ? std::string{}
+                                : line.substr(pos + std::string("treedecomp").size());
+                            // Trim leading whitespace.
+                            std::size_t start = 0;
+                            while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start]))) ++start;
+                            instance.parameters.emplace("treedecomp", value.substr(start));
+                        } else {
+                            parseKeyValueLine(line, instance.parameters, lineNumber, directive);
+                        }
                         break;
+                    }
                     default:
                         break; // ignore other comment types
                 }
@@ -238,6 +399,18 @@ Instance parseInput() {
             }
         }
         instance.cpsMap = cpsMap;
+
+        // If a tree decomposition was provided via #x treedecomp, compute the
+        // per-leaf TD depth used for branching-order heuristics. Failures here
+        // are non-fatal: the solver simply falls back to its default order.
+        auto tdIt = instance.parameters.find("treedecomp");
+        if (tdIt != instance.parameters.end()) {
+            std::vector<std::vector<int>> bags;
+            std::vector<std::pair<int,int>> edges;
+            if (parseTreeDecomp(tdIt->second, bags, edges)) {
+                computeTdLeafDepth(bags, edges, instance.leafCount, instance.tdLeafDepth);
+            }
+        }
     } catch (const ParseError& err) {
         std::cerr << "Parsing failed: " << err.what() << '\n';
         return {};
