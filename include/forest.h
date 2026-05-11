@@ -66,6 +66,12 @@ class Forest {
 		uint64_t cpsReduction(TreeNode* node, std::unordered_map<uint64_t, int>& cpsMap, MutationTrail* trail = nullptr);
 
 		std::string treeToNewick(const TreeNode* node);
+		// Canonical Newick: child subtrees are emitted in lexicographic order
+		// so that two structurally-identical subtrees with their children in
+		// opposite orders (which hash equally — mixHashes is symmetric)
+		// produce the SAME label. Required by cpsReduction so merged-leaf
+		// labels match across forests for cascading lookups.
+		static std::string canonicalNewick(const TreeNode* node);
 		void printForestNewick();
 
 		void setComponentCount(int newCount, MutationTrail* trail = nullptr);

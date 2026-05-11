@@ -110,7 +110,7 @@ void MutationTrail::apply(UndoEntry& e) {
             e.forest->leafByLabel_[l->label] = l;
             e.forest->leafByLabel_[r->label] = r;
 
-            e.forest->nodeByCps_[node->cpsHash] = node;
+            e.forest->nodeByCps_[e.u64_aux] = node;
             invalidateSubtreeHash(node);
             break;
         }

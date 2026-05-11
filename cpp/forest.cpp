@@ -480,60 +480,189 @@ std::vector<TreeNode*> Forest::collectPendantSubtreesBetweenLeaves(const std::st
     };
 
 std::uint64_t Forest::cpsReduction(TreeNode* node, std::unordered_map<uint64_t, int>& cpsMap, MutationTrail* trail) {
-    if (node != nullptr) {
-        if (node->isCpsNode()) {
-            auto l = node->left;
-            auto r = node->right;
+    // Generalized common-pendant-subtree reduction. Collapses an arbitrary
+    // internal subtree rooted at `node` into a single merged-leaf whose label
+    // is the Newick string of the subtree. Maintains:
+    //   * leaves_ / leafByLabel_   — descendant leaves removed, merged leaf added
+    //   * nodeByCps_                — descendant internal entries removed,
+    //                                 merged-node entry removed, ancestor
+    //                                 entries refreshed with new hashes
+    //   * cpsMap                    — counts adjusted by the same set of
+    //                                 (oldHash--, newHash++) deltas
+    //   * siblingPairParents_       — descendant entries removed, parent
+    //                                 re-evaluated
+    // The trail records the inverse of every mutation.
+    if (node == nullptr || node->isLeaf || node->isMerged ||
+        node->left == nullptr || node->right == nullptr) {
+        return 0;
+    }
+    const uint64_t h = hashSubtree(node);
+    // Stale-pointer guard: the caller may have looked us up via a hash that
+    // no longer corresponds to this node's current structure (because an
+    // ancestor reduction shifted things).
+    auto it = nodeByCps_.find(h);
+    if (it == nodeByCps_.end() || it->second != node) {
+        return 0;
+    }
 
-            globalMergeCherry(node, trail);
-
-            leaves_.erase(l);
-            leaves_.erase(r);
-            leaves_.insert(node);
-
-            leafByLabel_[node->label] = node;
-            leafByLabel_.erase(l->label);
-            leafByLabel_.erase(r->label);
-
-            nodeByCps_.erase(node->cpsHash);
-
-            updateSiblingPairParent(node, trail);
-            updateSiblingPairParent(node->parent, trail);
-
-            if (trail != nullptr) {
-                UndoEntry e{};
-                e.op = UndoOp::CpsReductionRestore;
-                e.forest = this;
-                e.t_aux  = l;
-                e.t_aux2 = r;
-                e.t_aux3 = node;
-                trail->record(std::move(e));
-            }
-            if (node->parent != nullptr) {
-                auto parent = node->parent;
-                if (parent->isCpsNode()) {
-
-                    parent->setCps();
-                    auto h = parent->cpsHash;
-
-                    nodeByCps_[h] = parent;
-                    if (cpsMap.find(parent->cpsHash) == cpsMap.end()) {
-                        cpsMap[h] = 1;
-                    } else {
-                        cpsMap[h] += 1;
-                    }
-                    if (trail != nullptr) {
-                        trail->record([this, parent, h, &cpsMap]() {
-                            parent->cpsHash = 0;
-                            nodeByCps_.erase(parent->cpsHash);
-
-                            cpsMap[h] -= 1;
-                        });
-                    }
-                    return h;
-                }
+    // 1. Walk the subtree once, classifying each node as internal-descendant
+    //    or leaf-descendant. `node` itself is the new merged-leaf root and is
+    //    NOT in either list.
+    std::vector<TreeNode*> internals;     // strict descendants
+    std::vector<TreeNode*> subtreeLeaves; // strict descendants
+    {
+        std::vector<TreeNode*> stack{node->left, node->right};
+        while (!stack.empty()) {
+            TreeNode* cur = stack.back();
+            stack.pop_back();
+            if (cur == nullptr) continue;
+            if (cur->isLeaf) {
+                subtreeLeaves.push_back(cur);
+            } else {
+                internals.push_back(cur);
+                stack.push_back(cur->left);
+                stack.push_back(cur->right);
             }
         }
+    }
+
+    // Compute the merged-leaf's label BEFORE any pointer mutation.
+    // Use the CANONICAL form so that two forests whose subtrees match
+    // structurally (symmetric hash) but differ in left/right child order
+    // still produce the same label — otherwise the merged-leaf hashes
+    // diverge and cascading CPS lookups silently fail.
+    std::string newick = canonicalNewick(node);
+
+    auto recordCpsMapDelta = [&](uint64_t key, int delta) {
+        cpsMap[key] += delta;
+        if (trail != nullptr) {
+            UndoEntry e{};
+            e.op = UndoOp::CpsMapDelta;
+            e.cpsMapPtr = &cpsMap;
+            e.u64_aux = key;
+            e.int_aux = -delta; // undo applies the inverse delta
+            trail->record(std::move(e));
+        }
+    };
+
+    auto eraseNodeByCps = [&](uint64_t key, TreeNode* expected) {
+        auto fit = nodeByCps_.find(key);
+        if (fit == nodeByCps_.end() || fit->second != expected) return;
+        nodeByCps_.erase(fit);
+        if (trail != nullptr) {
+            UndoEntry e{};
+            e.op = UndoOp::ForestNodeByCpsSet;
+            e.forest = this;
+            e.u64_aux = key;
+            e.t_aux = expected;
+            trail->record(std::move(e));
+        }
+    };
+
+    auto setNodeByCps = [&](uint64_t key, TreeNode* value) {
+        nodeByCps_[key] = value;
+        if (trail != nullptr) {
+            UndoEntry e{};
+            e.op = UndoOp::ForestNodeByCpsErase;
+            e.forest = this;
+            e.u64_aux = key;
+            trail->record(std::move(e));
+        }
+    };
+
+    // 2. Drop descendant internal nodes from cpsMap / nodeByCps_ /
+    //    siblingPairParents_.
+    for (auto* d : internals) {
+        uint64_t dh = hashSubtree(d);
+        recordCpsMapDelta(dh, -1);
+        eraseNodeByCps(dh, d);
+        // siblingPairParents_ may contain `d` if it was a depth-1 cherry-of-leaves.
+        auto sit = siblingPairParents_.find(d);
+        if (sit != siblingPairParents_.end()) {
+            siblingPairParents_.erase(sit);
+            if (trail != nullptr) {
+                UndoEntry e{};
+                e.op = UndoOp::ForestSiblingInsert;
+                e.forest = this;
+                e.t_aux = d;
+                trail->record(std::move(e));
+            }
+        }
+    }
+
+    // 3. Drop descendant leaves from leaves_ / leafByLabel_.
+    for (auto* l : subtreeLeaves) {
+        if (leaves_.erase(l)) {
+            if (trail != nullptr) {
+                UndoEntry e{};
+                e.op = UndoOp::ForestLeavesInsert;
+                e.forest = this;
+                e.t_aux = l;
+                trail->record(std::move(e));
+            }
+        }
+        auto lit = leafByLabel_.find(l->label);
+        if (lit != leafByLabel_.end() && lit->second == l) {
+            std::string oldKey = lit->first;
+            leafByLabel_.erase(lit);
+            if (trail != nullptr) {
+                UndoEntry e{};
+                e.op = UndoOp::ForestLeafByLabelSet;
+                e.forest = this;
+                e.str_aux = std::move(oldKey);
+                e.t_aux = l;
+                trail->record(std::move(e));
+            }
+        }
+    }
+
+    // 4. Drop the merged-node's old hash from cpsMap / nodeByCps_.
+    recordCpsMapDelta(h, -1);
+    eraseNodeByCps(h, node);
+
+    // 5. Snapshot parent's old hash before the merge invalidates it.
+    TreeNode* parent = node->parent;
+    uint64_t parentOldHash = (parent != nullptr) ? hashSubtree(parent) : 0;
+
+    // 6. Flatten the subtree into a single merged leaf carrying the Newick
+    //    string as its label.
+    globalMergeSubtree(node, newick, trail);
+
+    // 7. Insert the merged leaf into leaves_ / leafByLabel_.
+    if (leaves_.insert(node).second) {
+        if (trail != nullptr) {
+            UndoEntry e{};
+            e.op = UndoOp::ForestLeavesErase;
+            e.forest = this;
+            e.t_aux = node;
+            trail->record(std::move(e));
+        }
+    }
+    {
+        auto [lit2, inserted] = leafByLabel_.insert({node->label, node});
+        if (inserted && trail != nullptr) {
+            UndoEntry e{};
+            e.op = UndoOp::ForestLeafByLabelErase;
+            e.forest = this;
+            e.str_aux = node->label;
+            trail->record(std::move(e));
+        }
+    }
+
+    updateSiblingPairParent(node, trail);
+    updateSiblingPairParent(parent, trail);
+
+    // 8. Refresh the parent's cpsMap / nodeByCps_ entry: parent's hash
+    //    changed because one of its children just collapsed.
+    if (parent != nullptr && !parent->isLeaf && !parent->isMerged) {
+        uint64_t parentNewHash = hashSubtree(parent);
+        if (parentNewHash != parentOldHash) {
+            recordCpsMapDelta(parentOldHash, -1);
+            eraseNodeByCps(parentOldHash, parent);
+            recordCpsMapDelta(parentNewHash, +1);
+            setNodeByCps(parentNewHash, parent);
+        }
+        return parentNewHash;
     }
     return 0;
 }
@@ -547,6 +676,19 @@ std::string Forest::treeToNewick(const TreeNode* node) {
 	if (node->left && node->right) result += ",";
 	if (node->right) result += treeToNewick(node->right);
 	result += ")";
+	if (node->label != "0") result += node->label;
+	return result;
+}
+
+std::string Forest::canonicalNewick(const TreeNode* node) {
+	if (!node) return "";
+	if (node->isLeaf) return node->label;
+	std::string a = node->left  ? canonicalNewick(node->left)  : "";
+	std::string b = node->right ? canonicalNewick(node->right) : "";
+	if (b < a) std::swap(a, b);
+	std::string result = "(" + a;
+	if (!a.empty() && !b.empty()) result += ",";
+	result += b + ")";
 	if (node->label != "0") result += node->label;
 	return result;
 }

@@ -53,14 +53,18 @@ TreeNode* NewickParser::parseSubtree(std::unordered_set<TreeNode*>& leaves, std:
         node->right = right;
         node->right->parent = node;
         if (left->isLeaf && right->isLeaf) {
-            node->setCps();
-            auto h = node->cpsHash;
+            auto h = hashSubtree(node);
             nodeByCps[h] = node;
             if (cpsMap.find(h) == cpsMap.end()) {
                 cpsMap[h] = 1;
             } else {
                 cpsMap[h] += 1;
             }
+        } else {
+            // Generalized CPS: enroll every internal node, not just cherries.
+            auto h = hashSubtree(node);
+            nodeByCps[h] = node;
+            cpsMap[h] += 1;
         }
 
         return node;

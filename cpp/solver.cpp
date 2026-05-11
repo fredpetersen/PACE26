@@ -1,5 +1,6 @@
 #include <solver.h>
 
+#include <algorithm>
 #include <cctype>
 #include <iostream>
 #include <memory>
@@ -19,33 +20,13 @@
 
 namespace {
 
-// Recursive structural hash of a tree. Symmetric over the two children so that
-// (a,b) and (b,a) hash identically (consistent with the rest of the solver).
-// Result is memoized on TreeNode::subtreeHash and invalidated upward by every
-// structural mutation (see invalidateSubtreeHash in tree_node.h).
-uint64_t hashNode(const TreeNode* n) {
-    if (n == nullptr) return 0;
-    if (n->subtreeHash != 0) return n->subtreeHash;
-    uint64_t h;
-    if (n->isLeaf) {
-        h = std::hash<std::string>{}(n->label);
-    } else {
-        uint64_t hl = hashNode(n->left);
-        uint64_t hr = hashNode(n->right);
-        if (hl > hr) std::swap(hl, hr);
-        h = hl ^ (hr + 0x9e3779b97f4a7c15ULL + (hl << 6) + (hl >> 2));
-    }
-    if (h == 0) h = 1; // 0 is reserved as the "invalid" sentinel.
-    n->subtreeHash = h;
-    return h;
-}
-
 // Multiset hash of a forest's roots (commutative — root order in the set is
-// not semantically meaningful).
+// not semantically meaningful). Delegates to TreeNode::hashSubtree so the CPS
+// reduction and the failure cache share a single hash implementation.
 uint64_t hashForest(const Forest& f) {
     uint64_t acc = 0;
     for (auto* r : f.getRoots()) {
-        acc += hashNode(r);
+        acc += hashSubtree(r);
     }
     return acc;
 }
@@ -87,15 +68,43 @@ void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::share
 }
 
 void Solver::initCpsReduction() {
-    auto keys = std::stack<uint64_t>{};
-    for (auto kv : cpsMap_) {
-        if (kv.second == forests_.size()) { // TODO: is it forests_.size() - solvedForests
-            keys.push(kv.first);
+    // Process larger common pendant subtrees first: collapsing a big subtree
+    // wipes out (decrements) the cpsMap entries of every subtree it contains,
+    // so doing them in descending-size order avoids redundant per-cherry work.
+    if (forests_.empty()) return;
+    auto* anchor = forests_.front().get();
+    if (anchor == nullptr) return;
+
+    auto subtreeSize = [](TreeNode* n) {
+        if (n == nullptr) return 0;
+        int count = 0;
+        std::vector<TreeNode*> stack{n};
+        while (!stack.empty()) {
+            TreeNode* cur = stack.back();
+            stack.pop_back();
+            if (cur == nullptr) continue;
+            ++count;
+            stack.push_back(cur->left);
+            stack.push_back(cur->right);
+        }
+        return count;
+    };
+
+    struct Cand { uint64_t hash; int size; };
+    std::vector<Cand> candidates;
+    candidates.reserve(cpsMap_.size());
+    const int N = static_cast<int>(forests_.size());
+    for (const auto& kv : cpsMap_) {
+        if (kv.second == N) {
+            TreeNode* n = anchor->getNodeByCps(kv.first);
+            candidates.push_back({kv.first, subtreeSize(n)});
         }
     }
-    while (!keys.empty()) {
-        tryCpsReductionForHash(keys.top());
-        keys.pop();
+    std::sort(candidates.begin(), candidates.end(),
+              [](const Cand& a, const Cand& b) { return a.size > b.size; });
+
+    for (const auto& c : candidates) {
+        tryCpsReductionForHash(c.hash);
     }
 }
 

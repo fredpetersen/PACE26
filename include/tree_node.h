@@ -11,10 +11,10 @@
 struct TreeNode {
     bool isMerged = false;
     bool isLeaf = false;
-    uint64_t cpsHash = 0;
     // Cached structural hash of the subtree rooted at this node. 0 = invalid
     // (must be recomputed). Cleared upward via invalidateSubtreeHash whenever
-    // anything below this node changes.
+    // anything below this node changes. This is the single source of truth
+    // for both common-pendant-subtree (CPS) reduction and the failure cache.
     mutable uint64_t subtreeHash = 0;
     std::string label = "0";
 
@@ -22,7 +22,6 @@ struct TreeNode {
     TreeNode* left  = nullptr;
     TreeNode* right = nullptr;
 
-    void setCps();
     bool isCpsNode();
 };
 
@@ -33,5 +32,16 @@ inline void invalidateSubtreeHash(TreeNode* n) {
     }
 }
 
+// Recursive symmetric structural hash, memoized in n->subtreeHash. (a,b) and
+// (b,a) hash identically. Returns 0 for nullptr.
+uint64_t hashSubtree(const TreeNode* n);
+
 void localMergeCherry(TreeNode* node,  MutationTrail* trail = nullptr);
 void globalMergeCherry(TreeNode* node, MutationTrail* trail = nullptr);
+// Generalized variant: collapses an arbitrary internal subtree rooted at
+// `node` into a single merged-leaf node whose label is `newickLabel` (the
+// caller supplies the Newick string so we don't have to drag forest helpers
+// in here). Records the inverse on the trail. The two subtrees rooted at
+// node->left / node->right remain in memory (their parent pointers are
+// cleared) so the trail can restore them on rollback.
+void globalMergeSubtree(TreeNode* node, std::string newickLabel, MutationTrail* trail = nullptr);
