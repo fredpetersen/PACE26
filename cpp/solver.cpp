@@ -47,7 +47,7 @@ uint64_t hashForests(const std::vector<std::shared_ptr<Forest>>& fs) {
 void Solver::printForests() const {
     int i = 1;
     for (auto f : forests_) {
-        f->print("Forest " + i++);
+        f->print("Forest " + std::to_string(i++));
     }
 }
 
