@@ -36,6 +36,15 @@ inline void invalidateSubtreeHash(TreeNode* n) {
 // (b,a) hash identically. Returns 0 for nullptr.
 uint64_t hashSubtree(const TreeNode* n);
 
+// Order-independent hash of the LEAF SET below n (XOR of per-leaf atoms).
+// Two subtrees with the same leaf set hash equally regardless of internal
+// structure. Returns 0 for nullptr or empty subtrees. Not memoized; intended
+// for one-shot preprocessing passes (e.g. cluster discovery).
+uint64_t hashLeafSet(const TreeNode* n);
+
+// Number of leaves in the subtree rooted at n.
+int countLeaves(const TreeNode* n);
+
 void localMergeCherry(TreeNode* node,  MutationTrail* trail = nullptr);
 void globalMergeCherry(TreeNode* node, MutationTrail* trail = nullptr);
 // Generalized variant: collapses an arbitrary internal subtree rooted at

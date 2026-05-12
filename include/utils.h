@@ -30,6 +30,24 @@ inline uint64_t hashLeafLabel(const std::string& label) {
     return h == 0 ? 1 : h;
 }
 
+// Bijective 64-bit avalanche. Used to derive an independent per-leaf random
+// from the leaf's label hash for set hashing (XOR of these is collision-
+// resistant in practice; XOR of raw std::hash values is not).
+inline uint64_t splitmix64(uint64_t x) {
+    x += 0x9e3779b97f4a7c15ULL;
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    x = x ^ (x >> 31);
+    return x;
+}
+
+// Per-leaf 64-bit id derived from the label, suitable for XOR-based set
+// hashing of leaf sets. Independent of structural hash.
+inline uint64_t leafSetAtomHash(const std::string& label) {
+    uint64_t h = splitmix64(hashLeafLabel(label));
+    return h == 0 ? 1 : h;
+}
+
 // Backward-compatible cherry hash: equals the structural hash of an internal
 // node whose two children are leaves with these labels.
 inline uint64_t computeCpsHash(const std::string& a, const std::string& b) {

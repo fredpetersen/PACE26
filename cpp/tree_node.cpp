@@ -15,6 +15,18 @@ uint64_t hashSubtree(const TreeNode* n) {
     return h;
 }
 
+uint64_t hashLeafSet(const TreeNode* n) {
+    if (n == nullptr) return 0;
+    if (n->isLeaf) return leafSetAtomHash(n->label);
+    return hashLeafSet(n->left) ^ hashLeafSet(n->right);
+}
+
+int countLeaves(const TreeNode* n) {
+    if (n == nullptr) return 0;
+    if (n->isLeaf) return 1;
+    return countLeaves(n->left) + countLeaves(n->right);
+}
+
 bool TreeNode::isCpsNode() {
     return left != nullptr &&
         right != nullptr &&
