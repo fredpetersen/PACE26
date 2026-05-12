@@ -68,43 +68,18 @@ void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::share
 }
 
 void Solver::initCpsReduction() {
-    // Process larger common pendant subtrees first: collapsing a big subtree
-    // wipes out (decrements) the cpsMap entries of every subtree it contains,
-    // so doing them in descending-size order avoids redundant per-cherry work.
-    if (forests_.empty()) return;
-    auto* anchor = forests_.front().get();
-    if (anchor == nullptr) return;
-
-    auto subtreeSize = [](TreeNode* n) {
-        if (n == nullptr) return 0;
-        int count = 0;
-        std::vector<TreeNode*> stack{n};
-        while (!stack.empty()) {
-            TreeNode* cur = stack.back();
-            stack.pop_back();
-            if (cur == nullptr) continue;
-            ++count;
-            stack.push_back(cur->left);
-            stack.push_back(cur->right);
-        }
-        return count;
-    };
-
-    struct Cand { uint64_t hash; int size; };
-    std::vector<Cand> candidates;
-    candidates.reserve(cpsMap_.size());
+    // Only cherry-of-leaves nodes are enrolled at parse time, so every
+    // initial cpsMap entry has subtree size 3 — no need to sort by size.
+    // Cascades up the tree are handled by tryCpsReductionForHash on the
+    // parent hash returned from cpsReduction.
+    std::vector<uint64_t> hashes;
+    hashes.reserve(cpsMap_.size());
     const int N = static_cast<int>(forests_.size());
     for (const auto& kv : cpsMap_) {
-        if (kv.second == N) {
-            TreeNode* n = anchor->getNodeByCps(kv.first);
-            candidates.push_back({kv.first, subtreeSize(n)});
-        }
+        if (kv.second == N) hashes.push_back(kv.first);
     }
-    std::sort(candidates.begin(), candidates.end(),
-              [](const Cand& a, const Cand& b) { return a.size > b.size; });
-
-    for (const auto& c : candidates) {
-        tryCpsReductionForHash(c.hash);
+    for (auto h : hashes) {
+        tryCpsReductionForHash(h);
     }
 }
 

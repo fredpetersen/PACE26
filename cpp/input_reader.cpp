@@ -60,12 +60,16 @@ TreeNode* NewickParser::parseSubtree(std::unordered_set<TreeNode*>& leaves, std:
             } else {
                 cpsMap[h] += 1;
             }
-        } else {
-            // Generalized CPS: enroll every internal node, not just cherries.
-            auto h = hashSubtree(node);
-            nodeByCps[h] = node;
-            cpsMap[h] += 1;
         }
+        // Non-cherry internal nodes are NOT enrolled here. The non-CPS
+        // mutation paths (detachChild / contract / ...) only invalidate
+        // subtreeHash up the chain; they do not maintain cpsMap or
+        // nodeByCps_, so seeding stale entries here would just degrade
+        // tryCpsReductionForHash into a stream of failed lookups. Larger
+        // common pendant subtrees that legitimately form during search
+        // are still discovered: cpsReduction itself increments cpsMap /
+        // nodeByCps_ for the merged parent on every cherry collapse, and
+        // the cascade re-tries that fresh hash.
 
         return node;
     }
