@@ -72,11 +72,11 @@ void Solver::initCpsReduction() {
     // initial cpsMap entry has subtree size 3 — no need to sort by size.
     // Cascades up the tree are handled by tryCpsReductionForHash on the
     // parent hash returned from cpsReduction.
+    activeForestCount_ = static_cast<int>(forests_.size());
     std::vector<uint64_t> hashes;
     hashes.reserve(cpsMap_.size());
-    const int N = static_cast<int>(forests_.size());
     for (const auto& kv : cpsMap_) {
-        if (kv.second == N) hashes.push_back(kv.first);
+        if (kv.second == activeForestCount_) hashes.push_back(kv.first);
     }
     for (auto h : hashes) {
         tryCpsReductionForHash(h);
@@ -86,7 +86,7 @@ void Solver::initCpsReduction() {
 void Solver::tryCpsReductionForHash(uint64_t cpsHash, MutationTrail* trail) {
     if (cpsHash != 0) {
         auto val = cpsMap_[cpsHash];
-        if (val == forests_.size()) { // TODO: Here as well
+        if (val == activeForestCount_) {
             cpsReductionForCpsHash(cpsHash, trail);
         }
     }
@@ -94,10 +94,50 @@ void Solver::tryCpsReductionForHash(uint64_t cpsHash, MutationTrail* trail) {
 
 void Solver::cpsReductionForCpsHash(uint64_t cpsHash, MutationTrail* trail) {
     for (auto forest : forests_) {
+        if (inactiveForests_.count(forest.get())) continue;
         auto h = forest->cpsReduction(forest->getNodeByCps(cpsHash), cpsMap_, trail);
         if (h != 0) {
             tryCpsReductionForHash(h, trail);
         }
+    }
+}
+
+void Solver::deactivateForest(std::shared_ptr<Forest> f, MutationTrail& trail) {
+    if (f == nullptr) return;
+    Forest* raw = f.get();
+    if (inactiveForests_.count(raw)) return;
+
+    // 1. Snapshot which (hash, node) entries from f are still structurally
+    //    consistent (subtreeHash matches the key). Stale entries from prior
+    //    detach/contract chains are skipped — they were already not being
+    //    counted as f's contribution to a meaningful CPS lookup.
+    std::vector<uint64_t> touched;
+    touched.reserve(f->getNodesByCps().size());
+    for (const auto& kv : f->getNodesByCps()) {
+        TreeNode* n = kv.second;
+        if (n == nullptr) continue;
+        if (hashSubtree(n) != kv.first) continue;
+        touched.push_back(kv.first);
+    }
+
+    // 2. Decrement cpsMap_ for each touched key, with trail-recorded undo.
+    for (auto h : touched) {
+        cpsMap_[h] -= 1;
+        trail.record([this, h]() { cpsMap_[h] += 1; });
+    }
+
+    // 3. Decrement active count + mark inactive, with undo entries.
+    activeForestCount_ -= 1;
+    trail.record([this]() { activeForestCount_ += 1; });
+
+    inactiveForests_.insert(raw);
+    trail.record([this, raw]() { inactiveForests_.erase(raw); });
+
+    // 4. Re-fire CPS reduction for any touched hash whose count now equals
+    //    the new activeForestCount_. This is exactly the scenario the user
+    //    flagged: a CPS shared by f3..fN that wasn't all-N before now is.
+    for (auto h : touched) {
+        tryCpsReductionForHash(h, &trail);
     }
 }
 
@@ -197,6 +237,11 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
     if (idx == -1) {
         auto checkpoint = trail.checkpoint();
         f1->expandMergedSubtrees(&trail);
+
+        // Logically drop f2: subtract its contribution from cpsMap_, mark it
+        // inactive, and re-evaluate any CPS that may now be present in all
+        // remaining active forests.
+        deactivateForest(f2, trail);
 
         auto nextForests = forests;
         nextForests.erase(nextForests.begin() + 1);

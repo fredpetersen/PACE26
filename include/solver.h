@@ -27,6 +27,14 @@ class Solver {
   std::vector<std::shared_ptr<Forest>> forests_;
   int leafCount_;
   std::unordered_map<uint64_t, int> cpsMap_;
+  // Number of forests still considered active. Step 4 may logically remove
+  // a forest from the search; cpsMap_ entries are decremented accordingly
+  // so tryCpsReductionForHash compares against the active count rather than
+  // the original forest count.
+  int activeForestCount_ = 0;
+  // Forests that have been deactivated by an enclosing Step 4 frame.
+  // cpsReductionForCpsHash skips these so we don't mutate them.
+  std::unordered_set<Forest*> inactiveForests_;
   // Memoization: maps canonical forest-state hash -> largest k that was already
   // proven infeasible for that exact state. A future visit with budget k' <=
   // cached value can be pruned immediately.
@@ -34,7 +42,8 @@ class Solver {
 
 public:
     inline Solver(std::vector<std::shared_ptr<Forest>> forests, int leafCount, std::unordered_map<uint64_t, int> cpsMap)
-    : forests_(forests), leafCount_(leafCount), cpsMap_(cpsMap) {}
+    : forests_(forests), leafCount_(leafCount), cpsMap_(cpsMap),
+      activeForestCount_(static_cast<int>(forests.size())) {}
 
     void printForests() const;
 
@@ -48,6 +57,13 @@ public:
 
     void detachByLabel(std::shared_ptr<Forest> forest, std::string label, MutationTrail* trail = nullptr);
     void detachChild(std::shared_ptr<Forest> forest, TreeNode* node, bool shouldContract = true, MutationTrail* trail = nullptr);
+
+    // Logically remove `f` from the active forest set: decrements cpsMap_
+    // for every still-consistent nodeByCps entry of `f`, decrements the
+    // active forest count, marks `f` inactive, and re-fires CPS reduction
+    // for any hash whose count just dropped to the new active count. All
+    // mutations recorded on the trail.
+    void deactivateForest(std::shared_ptr<Forest> f, MutationTrail& trail);
 
     std::shared_ptr<Forest> solve();
     std::pair<bool, std::shared_ptr<Forest>> solve(int k);

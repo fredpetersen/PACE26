@@ -94,6 +94,7 @@ class Forest {
 
 		TreeNode* getLeafByLabel(const std::string& label) const;
 		TreeNode* getNodeByCps(uint64_t hash) const;
+		const std::unordered_map<uint64_t, TreeNode*>& getNodesByCps() const { return nodeByCps_; }
 
 		SiblingPairSet getSiblingLeafPairs();
 		std::pair<int, SiblingPair> getOneSiblingPair(int startIndex = 0);
