@@ -20,6 +20,14 @@
 
 namespace {
 
+// CPS reduction firing counters (process-global, sufficient for benchmarking
+// a single solve() invocation per process).
+long g_cpsInitFirings = 0;       // reductions that happened during initCpsReduction
+long g_cpsRuntimeFirings = 0;    // reductions during search (post-init)
+long g_cpsRuntimeTriggers = 0;   // calls to tryCpsReductionForHash during search
+long g_cpsRuntimeMatched = 0;    // tryCps... where cpsMap_[h] == activeForestCount_
+bool g_cpsInInit = false;
+
 // Multiset hash of a forest's roots (commutative — root order in the set is
 // not semantically meaningful). Delegates to TreeNode::hashSubtree so the CPS
 // reduction and the failure cache share a single hash implementation.
@@ -68,6 +76,10 @@ void Solver::cleanSingletonLeaves(std::shared_ptr<Forest> mainForest, std::share
 }
 
 void Solver::initCpsReduction() {
+#ifdef DISABLE_CPS_REDUCTION
+    activeForestCount_ = static_cast<int>(forests_.size());
+    return;
+#endif
     // Only cherry-of-leaves nodes are enrolled at parse time, so every
     // initial cpsMap entry has subtree size 3 — no need to sort by size.
     // Cascades up the tree are handled by tryCpsReductionForHash on the
@@ -78,24 +90,60 @@ void Solver::initCpsReduction() {
     for (const auto& kv : cpsMap_) {
         if (kv.second == activeForestCount_) hashes.push_back(kv.first);
     }
-    for (auto h : hashes) {
-        tryCpsReductionForHash(h);
+    // During init we always want the reducer to fire and cascade to a fixed
+    // point, regardless of the DISABLE_RUNTIME_CPS_REDUCTION flag. We use a
+    // local worklist instead of the gated tryCpsReductionForHash recursion.
+    g_cpsInInit = true;
+    std::vector<uint64_t> work = std::move(hashes);
+    while (!work.empty()) {
+        uint64_t h = work.back();
+        work.pop_back();
+        if (h == 0) continue;
+        auto it = cpsMap_.find(h);
+        if (it == cpsMap_.end() || it->second != activeForestCount_) continue;
+        for (auto forest : forests_) {
+            if (inactiveForests_.count(forest.get())) continue;
+            auto* node = forest->getNodeByCps(h);
+            if (node == nullptr) continue;
+            auto parentHash = forest->cpsReduction(node, cpsMap_, /*trail=*/nullptr);
+            // cpsReduction returns 0 on no-op (early-return guards) or the
+            // post-reduction parent hash on success. A successful firing
+            // can still legitimately return 0 if the merged node had no
+            // parent; we therefore detect "fired" by checking that the
+            // node's hash entry was either removed or replaced.
+            ++g_cpsInitFirings; // upper bound: counts attempted call after guard pass
+            if (parentHash != 0) work.push_back(parentHash);
+        }
     }
+    g_cpsInInit = false;
 }
 
 void Solver::tryCpsReductionForHash(uint64_t cpsHash, MutationTrail* trail) {
+#if defined(DISABLE_CPS_REDUCTION) || defined(DISABLE_RUNTIME_CPS_REDUCTION)
+    (void)cpsHash; (void)trail;
+    return;
+#endif
     if (cpsHash != 0) {
+        ++g_cpsRuntimeTriggers;
         auto val = cpsMap_[cpsHash];
         if (val == activeForestCount_) {
+            ++g_cpsRuntimeMatched;
             cpsReductionForCpsHash(cpsHash, trail);
         }
     }
 }
 
 void Solver::cpsReductionForCpsHash(uint64_t cpsHash, MutationTrail* trail) {
+#ifdef DISABLE_CPS_REDUCTION
+    (void)cpsHash; (void)trail;
+    return;
+#endif
     for (auto forest : forests_) {
         if (inactiveForests_.count(forest.get())) continue;
-        auto h = forest->cpsReduction(forest->getNodeByCps(cpsHash), cpsMap_, trail);
+        auto* node = forest->getNodeByCps(cpsHash);
+        if (node == nullptr) continue;
+        auto h = forest->cpsReduction(node, cpsMap_, trail);
+        if (!g_cpsInInit) ++g_cpsRuntimeFirings;
         if (h != 0) {
             tryCpsReductionForHash(h, trail);
         }
@@ -165,6 +213,11 @@ std::shared_ptr<Forest> Solver::solve() {
         isSolved = res.first;
         solution = res.second;
     }
+    std::cerr << "# cps init_firings=" << g_cpsInitFirings
+              << " runtime_firings=" << g_cpsRuntimeFirings
+              << " runtime_triggers=" << g_cpsRuntimeTriggers
+              << " runtime_matched=" << g_cpsRuntimeMatched
+              << std::endl;
     return solution;
 }
 
