@@ -269,6 +269,7 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
     // Memoization: if this exact (canonicalized) state was already proven
     // infeasible at a budget >= k, prune immediately. The hash is also used
     // below to record this state as infeasible if every branch fails.
+#ifndef DISABLE_FAILURE_CACHE
     const uint64_t stateHash = hashForests(forests);
     {
         auto it = failureCache_.find(stateHash);
@@ -276,10 +277,13 @@ std::pair<bool, std::vector<std::shared_ptr<Forest>>> Solver::solveRecursive(int
             return {false, {nullptr}};
         }
     }
+#endif
 
     auto recordFailure = [&]() -> std::pair<bool, std::vector<std::shared_ptr<Forest>>> {
+#ifndef DISABLE_FAILURE_CACHE
         auto& cached = failureCache_[stateHash];
         if (k > cached) cached = k;
+#endif
         return {false, {nullptr}};
     };
 
