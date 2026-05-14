@@ -25,3 +25,5 @@ Compile flags for disabling CPS reduction, both for the initial reduction, and r
 | (none)                            | yes                | yes         |
 | `-DDISABLE_RUNTIME_CPS_REDUCTION` | yes (full cascade) | no          |
 | `-DDISABLE_CPS_REDUCTION`         | no                 | no          |
+
+Additionally the failure cache can be fully disabled using the compile flag `-DDISABLE_FAILURE_CACHE`
