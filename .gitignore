@@ -15,3 +15,5 @@
 stride-logs/
 stride-downloads/
 .vscode/
+
+plots/
